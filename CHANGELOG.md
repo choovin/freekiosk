@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+***
+
+## [1.2.16] - 2026-03-03
+
 ### Added
 - 💤 **"Keep Screen On" toggle** (#83): New option in Display settings to disable `FLAG_KEEP_SCREEN_ON`. When turned off, the Android system manages screen timeout normally — the display turns off after the device's configured inactivity period, just like a regular device. Default is ON (standard kiosk behavior — no change for existing users). Screensaver is automatically disabled and hidden when this option is off, since the system handles sleep. Only available in WebView mode (External App mode already delegates screen management to the system). Included in backup/restore and reset. REST API / MQTT `screensaverOn` command is ignored when keep-screen-on is disabled
 

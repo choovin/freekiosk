@@ -521,7 +521,7 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
 
             {/* Footer */}
             <Text style={styles.footerText}>
-              Version 1.2.15 • by Rushb
+              Version 1.2.16 • by Rushb
             </Text>
           </Animated.View>
         </ScrollView>

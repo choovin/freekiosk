@@ -11,7 +11,7 @@
   </p>
   
   <p>
-    <img src="https://img.shields.io/badge/Version-1.2.15-blue.svg" alt="Version 1.2.9">
+    <img src="https://img.shields.io/badge/Version-1.2.16-blue.svg" alt="Version 1.2.9">
     <a href="https://github.com/rushb-fr/freekiosk/releases"><img src="https://img.shields.io/github/downloads/rushb-fr/freekiosk/total.svg" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
     <img src="https://img.shields.io/badge/Android-8.0%2B-green.svg" alt="Android 8.0+">
@@ -277,7 +277,16 @@ Done! Your tablet is now in kiosk mode.
 
 ## 🗺️ Roadmap
 
-### ✅ v1.2.15 (Feb 2026) - Beta Channel, Brightness Control & Fixes 🆕
+### ✅ v1.2.16 (Mar 2026) - Keep Screen On, MQTT Fixes & Camera2 Fallback 🆕
+- 💤 **"Keep Screen On" toggle**: Let Android manage screen timeout normally when disabled
+- 📡 **MQTT background reconnect**: Auto-reconnects after Doze/background, device name pre-filled, executeJS reliability fixes
+- 📷 **Camera2 fallback**: Motion detection on MediaTek/front-only cameras where CameraX fails
+- 📊 **Device hardware info**: Manufacturer, model, Android version, processor & uptime in MQTT/REST API
+- ♿ **Accessibility service persistence**: Auto-re-enabled on boot via Device Owner, survives Android 12+ inactivity
+- 🐛 **CalledFromWrongThreadException crash fix**: Native events now deferred to UI thread via setTimeout
+- 🐛 **Invisible PIN on dark mode**: Fixed PIN dots invisible against white background in Android dark mode
+
+### ✅ v1.2.15 (Feb 2026) - Beta Channel, Brightness Control & Fixes
 - 💡 **App Brightness Control toggle**: Disable FreeKiosk brightness management to let Tasker/system handle it
 - 🧪 **Beta update channel**: Opt-in toggle for pre-release versions with semver-aware comparison
 - 🔐 **MQTT password field fix**: Replaced custom masking with native `secureTextEntry` — fixes Samsung/Gboard paste issues
