@@ -115,7 +115,10 @@ class SystemInfoModule(reactContext: ReactApplicationContext) : ReactContextBase
                 if (isConnected) {
                     val wifiManager = reactApplicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                     val wifiInfoObj = wifiManager.connectionInfo
-                    val ssid = wifiInfoObj.ssid.replace("\"", "")
+                    var ssid = wifiInfoObj.ssid.replace("\"", "")
+                    if (ssid == "<unknown ssid>") {
+                        ssid = "WiFi"
+                    }
                     wifiInfo.putString("ssid", ssid)
 
                     // Signal strength (0-4 bars)
@@ -135,7 +138,10 @@ class SystemInfoModule(reactContext: ReactApplicationContext) : ReactContextBase
                 wifiInfo.putBoolean("isConnected", isConnected)
 
                 if (isConnected) {
-                    val ssid = wifiInfoObj.ssid.replace("\"", "")
+                    var ssid = wifiInfoObj.ssid.replace("\"", "")
+                    if (ssid == "<unknown ssid>") {
+                        ssid = "WiFi"
+                    }
                     wifiInfo.putString("ssid", ssid)
 
                     val rssi = wifiInfoObj.rssi

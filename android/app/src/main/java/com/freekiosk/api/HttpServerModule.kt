@@ -411,6 +411,14 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
             val dpm = reactContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
             put("isDeviceOwner", dpm.isDeviceOwnerApp(reactContext.packageName))
             put("kioskMode", jsKioskMode)
+            put("manufacturer", Build.MANUFACTURER)
+            put("model", Build.MODEL)
+            put("androidVersion", Build.VERSION.RELEASE)
+            put("apiLevel", Build.VERSION.SDK_INT)
+            put("processor", Build.HARDWARE)
+            put("deviceName", Build.DEVICE)
+            put("product", Build.PRODUCT)
+            put("uptime", android.os.SystemClock.elapsedRealtime() / 1000)
         }
         status.put("device", deviceStatus)
         
@@ -1122,8 +1130,12 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
                 
                 val activity = reactContext.currentActivity
                 if (activity != null) {
-                    // Re-enable FLAG_KEEP_SCREEN_ON
-                    activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    // Re-enable FLAG_KEEP_SCREEN_ON only if not in system-managed mode
+                    val prefs = reactContext.getSharedPreferences("FreeKioskSettings", Context.MODE_PRIVATE)
+                    val keepScreenOn = prefs.getBoolean("keep_screen_on", true)
+                    if (keepScreenOn) {
+                        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
                     
                     // Set screen to normal brightness (-1 = use system default)
                     val layoutParams = activity.window.attributes

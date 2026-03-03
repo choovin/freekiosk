@@ -132,9 +132,23 @@ export const MqttSettingsSection: React.FC<MqttSettingsSectionProps> = ({
     setDiscoveryPrefix(prefix);
     setStatusInterval(interval.toString());
     setAllowControl(control);
-    setDeviceName(mqttDeviceName);
     setPassword(mqttPassword);
     setMotionAlwaysOn(mqttMotionAlwaysOn);
+
+    // Pre-fill Device Name with Android model if never set
+    if (!mqttDeviceName) {
+      try {
+        const model = await mqttClient.getDeviceModel();
+        if (model) {
+          setDeviceName(model);
+          await StorageService.saveMqttDeviceName(model);
+        }
+      } catch (e) {
+        console.log('[MqttSettings] Could not get device model for pre-fill:', e);
+      }
+    } else {
+      setDeviceName(mqttDeviceName);
+    }
   };
 
   const handleConnect = async () => {
@@ -257,6 +271,24 @@ export const MqttSettingsSection: React.FC<MqttSettingsSectionProps> = ({
     setDeviceName(value);
     await StorageService.saveMqttDeviceName(value);
     onSettingsChanged?.();
+    // If connected, warn user that reconnect is needed for the name to take effect
+    if (isConnected) {
+      Alert.alert(
+        'Reconnect Required',
+        'The Device Name change will take effect after reconnecting MQTT. Reconnect now?',
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Reconnect',
+            onPress: async () => {
+              await handleDisconnect();
+              // Small delay to let disconnect complete
+              setTimeout(() => handleConnect(), 500);
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleMotionAlwaysOnChange = async (value: boolean) => {

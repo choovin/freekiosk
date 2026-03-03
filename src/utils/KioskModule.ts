@@ -19,6 +19,7 @@ interface KioskModuleInterface {
   turnScreenOn(): Promise<boolean>;
   turnScreenOff(): Promise<boolean>;
   isScreenOn(): Promise<boolean>;
+  setKeepScreenOn(enabled: boolean): Promise<boolean>;
   // Screen scheduler alarms (AlarmManager — works even when screen is off)
   scheduleScreenWake(wakeTimeMs: number): Promise<boolean>;
   scheduleScreenSleep(sleepTimeMs: number): Promise<boolean>;

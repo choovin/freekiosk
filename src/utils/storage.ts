@@ -82,6 +82,8 @@ const KEYS = {
   SCREEN_SCHEDULER_ENABLED: '@kiosk_screen_scheduler_enabled',
   SCREEN_SCHEDULER_RULES: '@kiosk_screen_scheduler_rules',
   SCREEN_SCHEDULER_WAKE_ON_TOUCH: '@kiosk_screen_scheduler_wake_on_touch',
+  // Keep Screen On (FLAG_KEEP_SCREEN_ON)
+  KEEP_SCREEN_ON: '@kiosk_keep_screen_on',
   // Inactivity Return to Home
   INACTIVITY_RETURN_ENABLED: '@kiosk_inactivity_return_enabled',
   INACTIVITY_RETURN_DELAY: '@kiosk_inactivity_return_delay',
@@ -295,6 +297,8 @@ export const StorageService = {
         KEYS.SCREEN_SCHEDULER_ENABLED,
         KEYS.SCREEN_SCHEDULER_RULES,
         KEYS.SCREEN_SCHEDULER_WAKE_ON_TOUCH,
+        // Keep Screen On
+        KEYS.KEEP_SCREEN_ON,
         // Inactivity Return to Home
         KEYS.INACTIVITY_RETURN_ENABLED,
         KEYS.INACTIVITY_RETURN_DELAY,
@@ -1511,6 +1515,26 @@ export const StorageService = {
       return value ? JSON.parse(value) : true; // Default: ON (allow wake on touch)
     } catch (error) {
       console.error('Error getting screen scheduler wake on touch:', error);
+      return true;
+    }
+  },
+
+  // ============ KEEP SCREEN ON (FLAG_KEEP_SCREEN_ON) ============
+
+  saveKeepScreenOn: async (value: boolean): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(KEYS.KEEP_SCREEN_ON, JSON.stringify(value));
+    } catch (error) {
+      console.error('Error saving keep screen on:', error);
+    }
+  },
+
+  getKeepScreenOn: async (): Promise<boolean> => {
+    try {
+      const value = await AsyncStorage.getItem(KEYS.KEEP_SCREEN_ON);
+      return value !== null ? JSON.parse(value) : true; // Default: ON (screen always on)
+    } catch (error) {
+      console.error('Error getting keep screen on:', error);
       return true;
     }
   },

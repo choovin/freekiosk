@@ -84,6 +84,8 @@ const BACKUP_KEYS = [
   '@kiosk_screen_scheduler_enabled',
   '@kiosk_screen_scheduler_rules',
   '@kiosk_screen_scheduler_wake_on_touch',
+  // Keep Screen On
+  '@kiosk_keep_screen_on',
   // Inactivity Return to Home
   '@kiosk_inactivity_return_enabled',
   '@kiosk_inactivity_return_delay',

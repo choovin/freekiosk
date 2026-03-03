@@ -15,6 +15,7 @@ import OverlayServiceModule from '../utils/OverlayServiceModule';
 import BlockingOverlayModule from '../utils/BlockingOverlayModule';
 import AutoBrightnessModule from '../utils/AutoBrightnessModule';
 import { ApiService } from '../utils/ApiService';
+import { mqttClient } from '../utils/MqttModule';
 import DeviceControlService from '../services/DeviceControlService';
 import { ScheduledEvent, getActiveEvent } from '../types/planner';
 import { ScreenScheduleRule, getNextWakeTime, getActiveSleepRule, getNextSleepTime } from '../types/screenScheduler';
@@ -121,6 +122,10 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   const [isScheduledSleep, setIsScheduledSleep] = useState<boolean>(false); // true when screen is OFF due to scheduler
   const screenSchedulerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
+  // Keep Screen On setting
+  const [keepScreenOn, setKeepScreenOn] = useState<boolean>(true);
+  const keepScreenOnRef = useRef<boolean>(true);
+  
   // Inactivity Return to Home states
   const [inactivityReturnEnabled, setInactivityReturnEnabled] = useState<boolean>(false);
   const [inactivityReturnDelay, setInactivityReturnDelay] = useState<number>(60); // seconds
@@ -136,8 +141,9 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   // WebView reload key - increment to force reload
   const [webViewKey, setWebViewKey] = useState<number>(0);
   
-  // JavaScript to execute in WebView (from API)
+  // JavaScript to execute in WebView (from API) - use object with counter to handle same code twice
   const [jsToExecute, setJsToExecute] = useState<string>('');
+  const jsExecuteCounterRef = useRef<number>(0);
 
   // WebView Back Button states
   const webViewRef = useRef<WebViewComponentRef>(null);
@@ -320,6 +326,11 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
           }
         },
         onScreensaverOn: async () => {
+          // Don't enable screensaver if keepScreenOn is off (system manages sleep)
+          if (!keepScreenOnRef.current) {
+            console.log('[API] Screensaver ON ignored — keepScreenOn is disabled, system manages sleep');
+            return;
+          }
           setScreensaverEnabled(true);
           await StorageService.saveScreensaverEnabled(true);
           console.log('[API] Screensaver setting ENABLED');
@@ -335,12 +346,10 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
         onScreenOn: () => {
           setIsScreensaverActive(false);
           resetTimer();
-          ApiService.updateStatus({ screenOn: true });
           console.log('[API] Screen ON');
         },
         onScreenOff: () => {
           setIsScreensaverActive(true);
-          ApiService.updateStatus({ screenOn: false });
           console.log('[API] Screen OFF');
         },
         onWake: () => {
@@ -404,8 +413,10 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
           }
         },
         onExecuteJs: (code: string) => {
-          // Will be handled by WebView - need to pass down
-          setJsToExecute(code);
+          // Append a unique comment to ensure React state change even if same code is sent twice
+          jsExecuteCounterRef.current += 1;
+          const uniqueCode = `${code}\n/* __fk_exec_${jsExecuteCounterRef.current}__ */`;
+          setJsToExecute(uniqueCode);
           console.log('[API] Execute JS:', code.substring(0, 50));
         },
         onReboot: async () => {
@@ -516,7 +527,24 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
 
     initApiService();
 
+    // MQTT background reconnection: check connection when app comes back to foreground
+    const mqttAppStateSubscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        try {
+          const connected = await mqttClient.isConnected();
+          if (!connected) {
+            console.log('[KioskScreen] App returned to foreground, MQTT disconnected — reconnecting...');
+            await ApiService.stopMqtt();
+            await ApiService.autoStartMqtt();
+          }
+        } catch (e) {
+          // MQTT not enabled or not configured, ignore
+        }
+      }
+    });
+
     return () => {
+      mqttAppStateSubscription.remove();
       ApiService.stopMqtt();
       ApiService.destroy();
     };
@@ -1248,6 +1276,18 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       setScreenSchedulerEnabled(savedScreenSchedulerEnabled);
       setScreenSchedulerRules(savedScreenSchedulerRules);
       setScreenSchedulerWakeOnTouch(savedScreenSchedulerWakeOnTouch);
+      
+      // Load Keep Screen On setting
+      const savedKeepScreenOn = bool(K.KEEP_SCREEN_ON, true);
+      setKeepScreenOn(savedKeepScreenOn);
+      keepScreenOnRef.current = savedKeepScreenOn;
+      // Apply the flag natively
+      try {
+        await KioskModule.setKeepScreenOn(savedKeepScreenOn);
+        console.log('[KioskScreen] Keep screen on:', savedKeepScreenOn);
+      } catch (error) {
+        console.error('[KioskScreen] Error setting keep screen on:', error);
+      }
       
       // Load Inactivity Return to Home settings
       const savedInactivityReturnEnabled = bool(K.INACTIVITY_RETURN_ENABLED, false);

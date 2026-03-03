@@ -11,6 +11,7 @@ import android.hardware.SensorManager
 import android.media.AudioManager
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -64,9 +65,6 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
     private var jsAutoBrightnessEnabled: Boolean = false
     private var jsAutoBrightnessMin: Int = 10
     private var jsAutoBrightnessMax: Int = 100
-
-    // Screen state from JS (tracks screenOn/screenOff commands)
-    private var jsScreenOn: Boolean? = null
 
     // Motion detection
     private var jsMotionDetected: Boolean = false
@@ -329,9 +327,6 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
             if (status.has("autoBrightnessMin")) jsAutoBrightnessMin = status.getInt("autoBrightnessMin")
             if (status.has("autoBrightnessMax")) jsAutoBrightnessMax = status.getInt("autoBrightnessMax")
 
-            // Screen state from JS (screenOn/screenOff commands)
-            if (status.has("screenOn")) jsScreenOn = status.getBoolean("screenOn")
-
             // Motion detection
             if (status.has("motionDetected")) jsMotionDetected = status.getBoolean("motionDetected")
             if (status.has("motionAlwaysOn")) jsMotionAlwaysOn = status.getBoolean("motionAlwaysOn")
@@ -369,6 +364,14 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
         // Required for RN event emitter
     }
 
+    /**
+     * Get the device model name for pre-filling the MQTT Device Name field.
+     */
+    @ReactMethod
+    fun getDeviceModel(promise: Promise) {
+        promise.resolve(Build.MODEL)
+    }
+
     // ==================== Status Provider ====================
 
     /**
@@ -383,10 +386,9 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
         // Screen
         val screenStatus = JSONObject().apply {
             val powerManager = reactContext.getSystemService(Context.POWER_SERVICE) as PowerManager
-            // Use JS-reported screen state if available (tracks screenOn/screenOff commands),
-            // otherwise fall back to native PowerManager.isInteractive
-            val screenOn = jsScreenOn ?: powerManager.isInteractive
-            put("on", screenOn)
+            // Use native PowerManager.isInteractive as source of truth (same as HttpServerModule)
+            // This reflects the PHYSICAL screen state regardless of command source
+            put("on", powerManager.isInteractive)
             put("brightness", jsBrightness)
             put("screensaverActive", jsScreensaverActive)
         }
@@ -425,6 +427,14 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
             put("isDeviceOwner", dpm.isDeviceOwnerApp(reactContext.packageName))
             put("kioskMode", jsKioskMode)
             put("motionAlwaysOn", jsMotionAlwaysOn)
+            put("manufacturer", Build.MANUFACTURER)
+            put("model", Build.MODEL)
+            put("androidVersion", Build.VERSION.RELEASE)
+            put("apiLevel", Build.VERSION.SDK_INT)
+            put("processor", Build.HARDWARE)
+            put("deviceName", Build.DEVICE)
+            put("product", Build.PRODUCT)
+            put("uptime", android.os.SystemClock.elapsedRealtime() / 1000) // seconds
         }
         status.put("device", deviceStatus)
 

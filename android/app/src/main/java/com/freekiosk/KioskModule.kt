@@ -455,8 +455,13 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                             )
                         }
                         
-                        // Re-enable FLAG_KEEP_SCREEN_ON if it was cleared
-                        activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        // Re-enable FLAG_KEEP_SCREEN_ON only if not in system-managed mode
+                        // Check SharedPreferences for the keep_screen_on setting
+                        val prefs = reactApplicationContext.getSharedPreferences("FreeKioskSettings", Context.MODE_PRIVATE)
+                        val keepScreenOn = prefs.getBoolean("keep_screen_on", true)
+                        if (keepScreenOn) {
+                            activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
                         
                         // Set screen to normal brightness (-1 = use system default)
                         val layoutParams = activity.window.attributes
@@ -559,6 +564,43 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         } catch (e: Exception) {
             android.util.Log.e("KioskModule", "Failed to check screen state: ${e.message}")
             promise.reject("ERROR", "Failed to check screen state: ${e.message}")
+        }
+    }
+
+    /**
+     * Set or clear the FLAG_KEEP_SCREEN_ON window flag.
+     * When enabled (default): screen stays on permanently — standard kiosk behavior.
+     * When disabled: Android system manages screen timeout normally.
+     */
+    @ReactMethod
+    fun setKeepScreenOn(enabled: Boolean, promise: Promise) {
+        try {
+            // Persist to SharedPreferences so turnScreenOn() can check later
+            val prefs = reactApplicationContext.getSharedPreferences("FreeKioskSettings", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("keep_screen_on", enabled).apply()
+
+            val activity = reactApplicationContext.currentActivity
+            if (activity != null) {
+                activity.runOnUiThread {
+                    try {
+                        if (enabled) {
+                            activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            android.util.Log.d("KioskModule", "FLAG_KEEP_SCREEN_ON added — screen stays on")
+                        } else {
+                            activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            android.util.Log.d("KioskModule", "FLAG_KEEP_SCREEN_ON cleared — system manages screen timeout")
+                        }
+                        promise.resolve(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("KioskModule", "Failed to set keep screen on: ${e.message}")
+                        promise.reject("ERROR", "Failed to set keep screen on: ${e.message}")
+                    }
+                }
+            } else {
+                promise.reject("ERROR", "Activity not available")
+            }
+        } catch (e: Exception) {
+            promise.reject("ERROR", "Failed to set keep screen on: ${e.message}")
         }
     }
 

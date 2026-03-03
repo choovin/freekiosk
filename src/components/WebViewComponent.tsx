@@ -174,14 +174,40 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
     }).start();
   }, [fadeAnim]);
 
-  // Execute JavaScript from API
+  // Execute JavaScript from API — with retry if page is still loading
   React.useEffect(() => {
-    if (jsToExecute && webViewRef.current && !loading) {
+    if (!jsToExecute || !webViewRef.current) return;
+
+    if (!loading) {
+      // Page ready, inject immediately
       webViewRef.current.injectJavaScript(jsToExecute);
       console.log('[WebView] Executed JS from API');
       if (onJsExecuted) {
         onJsExecuted();
       }
+    } else {
+      // Page still loading — retry after a short delay (up to 5 seconds)
+      console.log('[WebView] Page still loading, deferring JS execution...');
+      let attempts = 0;
+      const maxAttempts = 10;
+      const retryInterval = setInterval(() => {
+        attempts++;
+        if (webViewRef.current && !loading) {
+          clearInterval(retryInterval);
+          webViewRef.current.injectJavaScript(jsToExecute);
+          console.log('[WebView] Executed deferred JS from API after', attempts, 'retries');
+          if (onJsExecuted) {
+            onJsExecuted();
+          }
+        } else if (attempts >= maxAttempts) {
+          clearInterval(retryInterval);
+          console.warn('[WebView] Gave up executing JS after', maxAttempts, 'retries (page still loading)');
+          if (onJsExecuted) {
+            onJsExecuted();
+          }
+        }
+      }, 500);
+      return () => clearInterval(retryInterval);
     }
   }, [jsToExecute, loading, onJsExecuted]);
 

@@ -1,5 +1,6 @@
 package com.freekiosk.mqtt
 
+import android.os.Build
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -21,9 +22,10 @@ class MqttDiscovery(
         return JSONObject().apply {
             put("identifiers", JSONArray().put("freekiosk_$deviceId"))
             put("name", displayName)
-            put("model", "FreeKiosk")
-            put("manufacturer", "FreeKiosk")
+            put("model", "${Build.MODEL} (FreeKiosk)")
+            put("manufacturer", Build.MANUFACTURER.replaceFirstChar { it.uppercase() })
             put("sw_version", appVersion)
+            put("hw_version", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
             put("configuration_url", "http://$localIp:8080")
         }
     }
@@ -92,7 +94,12 @@ class MqttDiscovery(
             SensorDef("memory_used", "Memory Used", "{{ value_json.memory.usedPercent }}", null, "%", "mdi:memory"),
             SensorDef("storage_free", "Storage Free", "{{ value_json.storage.availableMB }}", null, "MB", "mdi:harddisk"),
             SensorDef("current_url", "Current URL", "{{ value_json.webview.currentUrl }}", null, null, "mdi:web"),
-            SensorDef("volume", "Volume", "{{ value_json.audio.volume }}", null, "%", "mdi:volume-high")
+            SensorDef("volume", "Volume", "{{ value_json.audio.volume }}", null, "%", "mdi:volume-high"),
+            SensorDef("device_manufacturer", "Manufacturer", "{{ value_json.device.manufacturer }}", null, null, "mdi:domain"),
+            SensorDef("device_model", "Model", "{{ value_json.device.model }}", null, null, "mdi:cellphone"),
+            SensorDef("android_version", "Android Version", "{{ value_json.device.androidVersion }}", null, null, "mdi:android"),
+            SensorDef("processor", "Processor", "{{ value_json.device.processor }}", null, null, "mdi:chip"),
+            SensorDef("uptime", "Uptime", "{{ value_json.device.uptime }}", "duration", "s", "mdi:timer-outline")
         )
 
         return sensors.map { sensor ->

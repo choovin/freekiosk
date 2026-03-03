@@ -86,6 +86,10 @@ interface DisplayTabProps {
   onScreenSchedulerWakeOnTouchChange: (value: boolean) => void;
   onAddScheduleRule: () => void;
   onEditScheduleRule: (rule: ScreenScheduleRule) => void;
+  
+  // Keep Screen On
+  keepScreenOn: boolean;
+  onKeepScreenOnChange: (value: boolean) => void;
 }
 
 const DisplayTab: React.FC<DisplayTabProps> = ({
@@ -137,6 +141,8 @@ const DisplayTab: React.FC<DisplayTabProps> = ({
   onScreenSchedulerRulesChange,
   screenSchedulerWakeOnTouch,
   onScreenSchedulerWakeOnTouchChange,
+  keepScreenOn,
+  onKeepScreenOnChange,
   onAddScheduleRule,
   onEditScheduleRule,
 }) => {
@@ -265,8 +271,31 @@ const DisplayTab: React.FC<DisplayTabProps> = ({
         </SettingsSection>
       )}
       
-      {/* Screensaver - WebView only */}
+      {/* Screen Always On - WebView mode only (external app mode: system manages screen) */}
       {displayMode === 'webview' && (
+      <SettingsSection title="Screen Always On" icon="monitor">
+        <SettingsSwitch
+          label="Keep Screen On"
+          hint={keepScreenOn
+            ? "Screen stays on permanently (standard kiosk behavior)"
+            : "System manages screen timeout — display turns off after inactivity like a normal device"}
+          value={keepScreenOn}
+          onValueChange={onKeepScreenOnChange}
+        />
+        {!keepScreenOn && (
+          <SettingsInfoBox variant="warning">
+            <Text style={styles.infoText}>
+              ⚠️ The device will use its Android display timeout setting to turn the screen off automatically.{`\n`}
+              Configure the timeout in Android Settings → Display → Screen Timeout.{`\n`}
+              Screensaver is disabled when screen management is left to the system.
+            </Text>
+          </SettingsInfoBox>
+        )}
+      </SettingsSection>
+      )}
+      
+      {/* Screensaver - WebView only, and only when keepScreenOn is enabled */}
+      {displayMode === 'webview' && keepScreenOn && (
         <SettingsSection title="Screensaver" icon="weather-night">
           <SettingsSwitch
             label="Enable Screensaver"

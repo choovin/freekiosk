@@ -1,11 +1,14 @@
 package com.freekiosk
 
+import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -14,6 +17,9 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == "android.intent.action.REBOOT") {
             
             DebugLog.d("BootReceiver", "Boot detected: ${intent.action}")
+            
+            // Re-enable accessibility service if Device Owner
+            reEnableAccessibilityIfDeviceOwner(context)
             
             // Add delay to ensure system is ready (important for Android 9)
             Handler(Looper.getMainLooper()).postDelayed({
@@ -41,6 +47,54 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
     
+    /**
+     * Re-enable the accessibility service after boot if the app is Device Owner.
+     * Android 13+ can disable accessibility services of sideloaded apps after reboot.
+     */
+    private fun reEnableAccessibilityIfDeviceOwner(context: Context) {
+        try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            if (!dpm.isDeviceOwnerApp(context.packageName)) {
+                DebugLog.d("BootReceiver", "Not Device Owner, skipping accessibility re-enable")
+                return
+            }
+
+            val adminComponent = ComponentName(context, DeviceAdminReceiver::class.java)
+            val serviceComponent = ComponentName(context, FreeKioskAccessibilityService::class.java)
+            val serviceName = "${context.packageName}/${serviceComponent.className}"
+
+            // Permit our accessibility service
+            val permitted = listOf(context.packageName)
+            dpm.setPermittedAccessibilityServices(adminComponent, permitted)
+
+            // Check if already enabled
+            val currentServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: ""
+
+            if (!currentServices.contains(serviceName)) {
+                val newServices = if (currentServices.isEmpty()) serviceName
+                    else "$currentServices:$serviceName"
+                Settings.Secure.putString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    newServices
+                )
+                Settings.Secure.putString(
+                    context.contentResolver,
+                    Settings.Secure.ACCESSIBILITY_ENABLED,
+                    "1"
+                )
+                DebugLog.d("BootReceiver", "Accessibility service re-enabled after boot")
+            } else {
+                DebugLog.d("BootReceiver", "Accessibility service already enabled")
+            }
+        } catch (e: Exception) {
+            DebugLog.errorProduction("BootReceiver", "Failed to re-enable accessibility: ${e.message}")
+        }
+    }
+
     /**
      * Check if auto-launch is enabled by reading from AsyncStorage (React Native storage)
      * Modern AsyncStorage (@react-native-async-storage/async-storage v2.x) uses SQLite database

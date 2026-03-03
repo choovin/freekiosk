@@ -32,6 +32,16 @@ class MqttClientService {
   }
 
   /**
+   * Get the Android device model name for pre-filling the MQTT Device Name field.
+   */
+  async getDeviceModel(): Promise<string> {
+    if (Platform.OS !== 'android' || !MqttModule) {
+      return '';
+    }
+    return MqttModule.getDeviceModel();
+  }
+
+  /**
    * Start the MQTT client
    */
   async start(config: MqttConfig): Promise<boolean> {

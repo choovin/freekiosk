@@ -149,6 +149,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [screenSchedulerEnabled, setScreenSchedulerEnabled] = useState<boolean>(false);
   const [screenSchedulerRules, setScreenSchedulerRules] = useState<ScreenScheduleRule[]>([]);
   const [screenSchedulerWakeOnTouch, setScreenSchedulerWakeOnTouch] = useState<boolean>(true);
+  const [keepScreenOn, setKeepScreenOn] = useState<boolean>(true);
   const [showScheduleRuleEditor, setShowScheduleRuleEditor] = useState<boolean>(false);
   const [editingScheduleRule, setEditingScheduleRule] = useState<ScreenScheduleRule | null>(null);
   
@@ -436,6 +437,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     const savedScreenSchedulerEnabled = await StorageService.getScreenSchedulerEnabled();
     const savedScreenSchedulerRules = await StorageService.getScreenSchedulerRules();
     const savedScreenSchedulerWakeOnTouch = await StorageService.getScreenSchedulerWakeOnTouch();
+    const savedKeepScreenOn = await StorageService.getKeepScreenOn();
 
     setDisplayMode(savedDisplayMode);
     setExternalAppPackage(savedExternalAppPackage ?? '');
@@ -481,6 +483,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     setScreenSchedulerEnabled(savedScreenSchedulerEnabled);
     setScreenSchedulerRules(savedScreenSchedulerRules);
     setScreenSchedulerWakeOnTouch(savedScreenSchedulerWakeOnTouch);
+    setKeepScreenOn(savedKeepScreenOn);
 
     // Inactivity Return to Home settings
     const savedInactivityReturnEnabled = await StorageService.getInactivityReturnEnabled();
@@ -953,6 +956,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     await StorageService.saveExternalAppPackage(externalAppPackage);
     await StorageService.saveAutoRelaunchApp(autoRelaunchApp);
     await StorageService.saveOverlayButtonVisible(overlayButtonVisible);
+    await StorageService.saveKeepScreenOn(keepScreenOn);
     await StorageService.saveStatusBarEnabled(statusBarEnabled);
     await StorageService.saveStatusBarOnOverlay(statusBarOnOverlay);
     await StorageService.saveStatusBarOnReturn(statusBarOnReturn);
@@ -1127,6 +1131,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
               setScreenSchedulerEnabled(false);
               setScreenSchedulerRules([]);
               setScreenSchedulerWakeOnTouch(true);
+              setKeepScreenOn(true);
               
               // Reset inactivity return state
               setInactivityReturnEnabled(false);
@@ -1388,6 +1393,14 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
             onScreenSchedulerRulesChange={setScreenSchedulerRules}
             screenSchedulerWakeOnTouch={screenSchedulerWakeOnTouch}
             onScreenSchedulerWakeOnTouchChange={setScreenSchedulerWakeOnTouch}
+            keepScreenOn={keepScreenOn}
+            onKeepScreenOnChange={(value) => {
+              setKeepScreenOn(value);
+              // When disabling keep screen on, screensaver makes no sense (system manages sleep)
+              if (!value && screensaverEnabled) {
+                setScreensaverEnabled(false);
+              }
+            }}
             onAddScheduleRule={() => {
               setEditingScheduleRule(null);
               setShowScheduleRuleEditor(true);

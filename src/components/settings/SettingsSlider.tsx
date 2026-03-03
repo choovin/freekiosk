@@ -1,9 +1,13 @@
 /**
  * FreeKiosk v1.2 - SettingsSlider Component
  * A slider with value display and optional presets
+ * 
+ * Uses local state during drag to avoid StackOverflowError on Android 8.x
+ * caused by infinite onProgressChanged loop in @react-native-community/slider.
+ * The parent state is only updated via onSlidingComplete.
  */
 
-import React from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Colors, Spacing, Typography } from '../../theme';
@@ -45,9 +49,33 @@ const SettingsSlider: React.FC<SettingsSliderProps> = ({
   disabled = false,
   style,
 }) => {
+  // Local state to decouple slider from parent during drag.
+  // This prevents the infinite native onProgressChanged loop on Android 8.x
+  // where setProgress() triggers onProgressChanged which calls setProgress() again.
+  const [localValue, setLocalValue] = useState(value);
+  const isSlidingRef = useRef(false);
+
+  // Sync local state when parent value changes (but not during active drag)
+  useEffect(() => {
+    if (!isSlidingRef.current) {
+      setLocalValue(value);
+    }
+  }, [value]);
+
+  const handleValueChange = useCallback((val: number) => {
+    isSlidingRef.current = true;
+    setLocalValue(val);
+  }, []);
+
+  const handleSlidingComplete = useCallback((val: number) => {
+    isSlidingRef.current = false;
+    setLocalValue(val);
+    onValueChange(val);
+  }, [onValueChange]);
+
   const displayValue = formatValue 
-    ? formatValue(value) 
-    : `${Math.round(value * 100)}${unit}`;
+    ? formatValue(localValue) 
+    : `${Math.round(localValue * 100)}${unit}`;
 
   return (
     <View style={[styles.container, style]}>
@@ -65,7 +93,7 @@ const SettingsSlider: React.FC<SettingsSliderProps> = ({
               key={preset.label}
               style={[
                 styles.presetButton,
-                value === preset.value && styles.presetButtonActive,
+                localValue === preset.value && styles.presetButtonActive,
               ]}
               onPress={() => !disabled && onValueChange(preset.value)}
               disabled={disabled}
@@ -73,7 +101,7 @@ const SettingsSlider: React.FC<SettingsSliderProps> = ({
               <Text
                 style={[
                   styles.presetButtonText,
-                  value === preset.value && styles.presetButtonTextActive,
+                  localValue === preset.value && styles.presetButtonTextActive,
                 ]}
               >
                 {preset.label}
@@ -90,8 +118,9 @@ const SettingsSlider: React.FC<SettingsSliderProps> = ({
           minimumValue={minimumValue}
           maximumValue={maximumValue}
           step={step}
-          value={value}
-          onValueChange={onValueChange}
+          value={localValue}
+          onValueChange={handleValueChange}
+          onSlidingComplete={handleSlidingComplete}
           minimumTrackTintColor={disabled ? Colors.textDisabled : Colors.primary}
           maximumTrackTintColor={Colors.border}
           thumbTintColor={disabled ? Colors.textDisabled : Colors.primary}

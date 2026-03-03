@@ -87,8 +87,12 @@ class ScreenSchedulerReceiver : BroadcastReceiver() {
                                     )
                                 }
 
-                                // Restore FLAG_KEEP_SCREEN_ON
-                                activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                                // Restore FLAG_KEEP_SCREEN_ON only if not in system-managed mode
+                                val prefs = context.getSharedPreferences("FreeKioskSettings", Context.MODE_PRIVATE)
+                                val keepScreenOn = prefs.getBoolean("keep_screen_on", true)
+                                if (keepScreenOn) {
+                                    activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                                }
 
                                 // Restore brightness to system default
                                 val layoutParams = activity.window.attributes
