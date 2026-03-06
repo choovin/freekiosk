@@ -185,7 +185,7 @@ All entities are grouped under one HA device:
 | Screensaver | `.../set/screensaver` | ON / OFF |
 | Always-on Motion Detection | `.../set/motion_always_on` | ON / OFF |
 
-#### Buttons (5)
+#### Buttons (14)
 
 | Entity | Command Topic | Icon |
 |--------|--------------|------|
@@ -194,16 +194,28 @@ All entities are grouped under one HA device:
 | Reboot | `.../set/reboot` | mdi:restart |
 | Clear Cache | `.../set/clear_cache` | mdi:delete-sweep |
 | Lock | `.../set/lock` | mdi:lock |
+| Remote Up | `.../set/remote_up` | mdi:arrow-up-bold |
+| Remote Down | `.../set/remote_down` | mdi:arrow-down-bold |
+| Remote Left | `.../set/remote_left` | mdi:arrow-left-bold |
+| Remote Right | `.../set/remote_right` | mdi:arrow-right-bold |
+| Remote Select | `.../set/remote_select` | mdi:radiobox-marked |
+| Remote Back | `.../set/remote_back` | mdi:arrow-left-circle |
+| Remote Home | `.../set/remote_home` | mdi:home |
+| Remote Menu | `.../set/remote_menu` | mdi:menu |
+| Remote Play/Pause | `.../set/remote_playpause` | mdi:play-pause |
 
-#### Text (3)
+#### Text (6)
 
 | Entity | Command Topic | Description |
 |--------|--------------|-------------|
 | Navigate URL | `.../set/url` | Navigate WebView to a URL |
 | Text to Speech | `.../set/tts` | Speak text aloud on the tablet |
 | Toast Message | `.../set/toast` | Show a toast notification on screen |
+| Keyboard Key | `.../set/keyboard_key` | Press a single key (e.g. `enter`, `a`, `f5`) |
+| Keyboard Combo | `.../set/keyboard_combo` | Press a key combination (e.g. `ctrl+c`, `alt+f4`) |
+| Keyboard Text | `.../set/keyboard_text` | Type a text string into focused field |
 
-**Total: 30 entities** auto-discovered in Home Assistant.
+**Total: 42 entities** auto-discovered in Home Assistant.
 
 ---
 
@@ -234,8 +246,20 @@ Commands are sent by publishing to `{baseTopic}/{topicId}/set/{entity}`.
 | `rotation_start` | rotationStart | any | Start URL rotation |
 | `rotation_stop` | rotationStop | any | Stop URL rotation |
 | `restart_ui` | restartUi | any | Restart app UI |
+| `remote_up` | remoteKey (up) | `PRESS` | D-pad Up |
+| `remote_down` | remoteKey (down) | `PRESS` | D-pad Down |
+| `remote_left` | remoteKey (left) | `PRESS` | D-pad Left |
+| `remote_right` | remoteKey (right) | `PRESS` | D-pad Right |
+| `remote_select` | remoteKey (select) | `PRESS` | D-pad Select / Enter |
+| `remote_back` | remoteKey (back) | `PRESS` | Back |
+| `remote_home` | remoteKey (home) | `PRESS` | Home |
+| `remote_menu` | remoteKey (menu) | `PRESS` | Menu |
+| `remote_playpause` | remoteKey (playpause) | `PRESS` | Media Play/Pause |
+| `keyboard_key` | keyboardKey | key name (e.g. `enter`, `a`, `f5`) | Press a single key |
+| `keyboard_combo` | keyboardCombo | combo string (e.g. `ctrl+c`) | Press a key combination |
+| `keyboard_text` | keyboardText | text string | Type text into focused field |
 
-> Commands have full parity with the [REST API](REST_API.md). Both interfaces dispatch through the same command handler. TTS and Toast are handled natively on the MQTT side (no JS round-trip).
+> Commands have full parity with the [REST API](REST_API.md). Both interfaces dispatch through the same native command handler. Remote control and keyboard commands are handled natively via the AccessibilityService (cross-app) or Activity key dispatch (in-app). TTS and Toast are also handled natively (no JS round-trip).
 
 ---
 
@@ -256,7 +280,7 @@ FreeKiosk can detect motion using the device camera and report it as a binary se
 ### Auto-reconnect
 The MQTT client automatically reconnects when the connection is lost (WiFi drop, broker restart). On reconnect, it:
 1. Publishes `"online"` to the availability topic
-2. Re-publishes all 30 HA Discovery configs
+2. Re-publishes all 42 HA Discovery configs
 3. Re-subscribes to command topics
 4. Resumes periodic status publishing
 

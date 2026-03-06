@@ -42,6 +42,7 @@ import { RecurringEventEditor, OneTimeEventEditor } from '../../components/setti
 import ScreenScheduleRuleEditor from '../../components/settings/ScreenScheduleRuleEditor';
 import { ScheduledEvent } from '../../types/planner';
 import { ScreenScheduleRule } from '../../types/screenScheduler';
+import { ManagedApp } from '../../types/managedApps';
 
 const { KioskModule } = NativeModules;
 
@@ -100,6 +101,8 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [hasOverlayPermission, setHasOverlayPermission] = useState<boolean>(false);
   const [hasUsageStatsPermission, setHasUsageStatsPermission] = useState<boolean>(false);
   const [isDeviceOwner, setIsDeviceOwner] = useState<boolean>(false);
+  const [managedApps, setManagedApps] = useState<ManagedApp[]>([]);
+  const [externalAppMode, setExternalAppMode] = useState<'single' | 'multi'>('single');
   const [statusBarEnabled, setStatusBarEnabled] = useState<boolean>(false);
   const [statusBarOnOverlay, setStatusBarOnOverlay] = useState<boolean>(true);
   const [statusBarOnReturn, setStatusBarOnReturn] = useState<boolean>(true);
@@ -168,6 +171,9 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   
   // PDF Viewer state
   const [pdfViewerEnabled, setPdfViewerEnabled] = useState<boolean>(false);
+  
+  // WebView Zoom Level
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
   
   // Update states
   const [checkingUpdate, setCheckingUpdate] = useState<boolean>(false);
@@ -442,6 +448,15 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     setDisplayMode(savedDisplayMode);
     setExternalAppPackage(savedExternalAppPackage ?? '');
     setAutoRelaunchApp(savedAutoRelaunchApp);
+
+    // Managed apps
+    const savedManagedApps = await StorageService.getManagedApps();
+    setManagedApps(savedManagedApps);
+    
+    // External app sub-mode
+    const savedExternalAppMode = await StorageService.getExternalAppMode();
+    setExternalAppMode(savedExternalAppMode);
+
     setOverlayButtonVisible(savedOverlayButtonVisible);
     setPinMaxAttempts(savedPinMaxAttempts);
     setPinMaxAttemptsText(String(savedPinMaxAttempts));
@@ -510,6 +525,10 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     // PDF Viewer setting
     const savedPdfViewerEnabled = await StorageService.getPdfViewerEnabled();
     setPdfViewerEnabled(savedPdfViewerEnabled);
+
+    // WebView Zoom Level
+    const savedZoomLevel = await StorageService.getWebViewZoomLevel();
+    setZoomLevel(savedZoomLevel);
   };
 
   const loadCertificates = async (): Promise<void> => {
@@ -786,6 +805,37 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
       return;
     }
     
+    // Check install permission before downloading
+    try {
+      const canInstall = await UpdateModule.checkInstallPermission();
+      if (!canInstall) {
+        Alert.alert(
+          '⚠️ Permission Required',
+          'FreeKiosk needs permission to install updates.\n\nPlease enable "Allow from this source" on the next screen, then come back and try the update again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: async () => {
+                try {
+                  await UpdateModule.openInstallPermissionSettings();
+                } catch (error: any) {
+                  Alert.alert(
+                    'Settings Unavailable',
+                    'This device does not support enabling app installs from settings.\n\nAlternative: connect via ADB and run:\nadb install -r FreeKiosk-<version>.apk',
+                  );
+                }
+              },
+            },
+          ],
+        );
+        return;
+      }
+    } catch (error) {
+      // If check fails, continue with download anyway
+      console.warn('Install permission check failed:', error);
+    }
+    
     setDownloading(true);
     
     try {
@@ -798,7 +848,17 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
       );
     } catch (error: any) {
       setDownloading(false);
-      Alert.alert('Error', `Download failed:\n\n${error?.message || error?.toString() || 'Unknown error'}`);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      
+      // Provide helpful message for install permission errors
+      if (error?.code === 'INSTALL_PERMISSION' || errorMsg.includes('unknown sources')) {
+        Alert.alert(
+          '⚠️ Install Permission Needed',
+          'The update was downloaded but cannot be installed.\n\nPlease enable "Install from unknown sources" for FreeKiosk in your device settings, then try again.\n\nOn restricted devices (e.g. Echo Show), use:\nadb install -r <apk>',
+        );
+      } else {
+        Alert.alert('Error', `Download failed:\n\n${errorMsg}`);
+      }
     }
   };
 
@@ -812,25 +872,35 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     }
 
     if (displayMode === 'external_app') {
-      if (!externalAppPackage) {
-        Alert.alert('Error', 'Please enter a package name or select an app');
-        return;
-      }
-      // Android package names can contain uppercase letters (e.g., com.JoonAppInc.JoonKids)
-      const regex = /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/;
-      if (!regex.test(externalAppPackage)) {
-        Alert.alert('Error', 'Invalid package name format (e.g., com.example.app)');
-        return;
-      }
-      try {
-        const isInstalled = await AppLauncherModule.isAppInstalled(externalAppPackage);
-        if (!isInstalled) {
-          Alert.alert('Error', `App not installed: ${externalAppPackage}`);
+      if (externalAppMode === 'single') {
+        // Single mode: require a package name (classic behavior)
+        if (!externalAppPackage) {
+          Alert.alert('Error', 'Please enter a package name or select an app');
           return;
         }
-      } catch (error) {
-        Alert.alert('Error', `Unable to verify app: ${error}`);
-        return;
+        // Android package names can contain uppercase letters (e.g., com.JoonAppInc.JoonKids)
+        const regex = /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/;
+        if (!regex.test(externalAppPackage)) {
+          Alert.alert('Error', 'Invalid package name format (e.g., com.example.app)');
+          return;
+        }
+        try {
+          const isInstalled = await AppLauncherModule.isAppInstalled(externalAppPackage);
+          if (!isInstalled) {
+            Alert.alert('Error', `App not installed: ${externalAppPackage}`);
+            return;
+          }
+        } catch (error) {
+          Alert.alert('Error', `Unable to verify app: ${error}`);
+          return;
+        }
+      } else {
+        // Multi mode: require at least one managed app with showOnHomeScreen
+        const homeScreenApps = managedApps.filter(a => a.showOnHomeScreen);
+        if (homeScreenApps.length === 0) {
+          Alert.alert('Error', 'Multi App mode requires at least one app with "Show on Home Screen" enabled');
+          return;
+        }
       }
     }
 
@@ -954,7 +1024,9 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     await StorageService.saveAutoLaunch(autoLaunchEnabled);
     await StorageService.saveDisplayMode(displayMode);
     await StorageService.saveExternalAppPackage(externalAppPackage);
+    await StorageService.saveExternalAppMode(externalAppMode);
     await StorageService.saveAutoRelaunchApp(autoRelaunchApp);
+    await StorageService.saveManagedApps(managedApps);
     await StorageService.saveOverlayButtonVisible(overlayButtonVisible);
     await StorageService.saveKeepScreenOn(keepScreenOn);
     await StorageService.saveStatusBarEnabled(statusBarEnabled);
@@ -969,6 +1041,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     const timerDelay = parseInt(backButtonTimerDelay, 10);
     await StorageService.saveBackButtonTimerDelay(isNaN(timerDelay) ? 10 : Math.max(1, Math.min(3600, timerDelay)));
     await StorageService.saveKeyboardMode(keyboardMode);
+    await StorageService.saveWebViewZoomLevel(zoomLevel);
     await StorageService.saveAllowPowerButton(allowPowerButton);
     await StorageService.saveAllowNotifications(allowNotifications);
     await StorageService.saveAllowSystemInfo(allowSystemInfo);
@@ -1011,6 +1084,19 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
     // Save PDF Viewer setting
     await StorageService.savePdfViewerEnabled(pdfViewerEnabled);
+
+    // Update accessibility whitelist if device owner
+    if (isDeviceOwner && displayMode === 'external_app') {
+      try {
+        const AccessibilityModule = require('../../utils/AccessibilityModule').default;
+        const accessibilityPackages = managedApps
+          .filter(app => app.allowAccessibility)
+          .map(app => app.packageName);
+        await AccessibilityModule.setPermittedAccessibilityPackages(accessibilityPackages);
+      } catch (error) {
+        console.warn('[Settings] setPermittedAccessibilityPackages error:', error);
+      }
+    }
 
     // Update overlay settings
     if (displayMode === 'external_app') {
@@ -1111,6 +1197,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
               setCertificates([]);
               setDisplayMode('webview');
               setExternalAppPackage('');
+              setExternalAppMode('single');
               setAutoRelaunchApp(true);
               setOverlayButtonVisible(false);
               setStatusBarEnabled(false);
@@ -1261,6 +1348,10 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
             onExternalAppPackageChange={setExternalAppPackage}
             onPickApp={loadInstalledApps}
             loadingApps={loadingApps}
+            managedApps={managedApps}
+            onManagedAppsChange={setManagedApps}
+            externalAppMode={externalAppMode}
+            onExternalAppModeChange={setExternalAppMode}
             hasOverlayPermission={hasOverlayPermission}
             onRequestOverlayPermission={requestOverlayPermission}
             hasUsageStatsPermission={hasUsageStatsPermission}
@@ -1376,6 +1467,8 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
             onShowTimeChange={setShowTime}
             keyboardMode={keyboardMode}
             onKeyboardModeChange={setKeyboardMode}
+            zoomLevel={zoomLevel}
+            onZoomLevelChange={setZoomLevel}
             screensaverEnabled={screensaverEnabled}
             onScreensaverEnabledChange={setScreensaverEnabled}
             screensaverBrightness={screensaverBrightness}

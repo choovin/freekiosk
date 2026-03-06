@@ -18,7 +18,7 @@ class BootReceiver : BroadcastReceiver() {
             
             DebugLog.d("BootReceiver", "Boot detected: ${intent.action}")
             
-            // Re-enable accessibility service if Device Owner
+            // Re-enable accessibility service if Device Owner (includes managed apps whitelist)
             reEnableAccessibilityIfDeviceOwner(context)
             
             // Add delay to ensure system is ready (important for Android 9)
@@ -31,7 +31,13 @@ class BootReceiver : BroadcastReceiver() {
                 
                 DebugLog.d("BootReceiver", "Auto-launch is enabled, starting app")
                 
-                // Launch the app on startup
+                // Launch background apps (launchOnBoot=true) before launching FreeKiosk
+                launchBackgroundApps(context)
+                
+                // Give boot apps a moment to initialize before FreeKiosk takes foreground
+                Thread.sleep(1000)
+                
+                // Launch the app on startup (FreeKiosk will be on top)
                 val launchIntent = Intent(context, MainActivity::class.java)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -43,6 +49,9 @@ class BootReceiver : BroadcastReceiver() {
                 } catch (e: Exception) {
                     DebugLog.errorProduction("BootReceiver", "Failed to launch app: ${e.message}")
                 }
+                
+                // Start BackgroundAppMonitorService for keep-alive apps
+                startBackgroundMonitorIfNeeded(context)
             }, 3000) // 3 second delay to ensure system is ready
         }
     }
@@ -50,6 +59,7 @@ class BootReceiver : BroadcastReceiver() {
     /**
      * Re-enable the accessibility service after boot if the app is Device Owner.
      * Android 13+ can disable accessibility services of sideloaded apps after reboot.
+     * Also re-applies the managed apps accessibility whitelist.
      */
     private fun reEnableAccessibilityIfDeviceOwner(context: Context) {
         try {
@@ -63,11 +73,14 @@ class BootReceiver : BroadcastReceiver() {
             val serviceComponent = ComponentName(context, FreeKioskAccessibilityService::class.java)
             val serviceName = "${context.packageName}/${serviceComponent.className}"
 
-            // Permit our accessibility service
-            val permitted = listOf(context.packageName)
-            dpm.setPermittedAccessibilityServices(adminComponent, permitted)
+            // Build permitted list: FreeKiosk + managed apps with allowAccessibility=true
+            val permitted = mutableListOf(context.packageName)
+            permitted.addAll(getManagedAppsWithAccessibility(context))
+            
+            dpm.setPermittedAccessibilityServices(adminComponent, permitted.distinct())
+            DebugLog.d("BootReceiver", "Permitted accessibility services: $permitted")
 
-            // Check if already enabled
+            // Check if FreeKiosk's own service is already enabled
             val currentServices = Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -92,6 +105,126 @@ class BootReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             DebugLog.errorProduction("BootReceiver", "Failed to re-enable accessibility: ${e.message}")
+        }
+    }
+
+    /**
+     * Launch managed apps that have launchOnBoot=true.
+     * They are launched in the background (not brought to foreground).
+     */
+    private fun launchBackgroundApps(context: Context) {
+        try {
+            val apps = getManagedAppsForBoot(context)
+            if (apps.isEmpty()) {
+                DebugLog.d("BootReceiver", "No background apps to launch on boot")
+                return
+            }
+            
+            val pm = context.packageManager
+            for (packageName in apps) {
+                try {
+                    // Verify app is installed first
+                    try {
+                        pm.getPackageInfo(packageName, 0)
+                    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                        DebugLog.d("BootReceiver", "Boot app not installed, skipping: $packageName")
+                        continue
+                    }
+                    
+                    val launchIntent = pm.getLaunchIntentForPackage(packageName)
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(launchIntent)
+                        DebugLog.d("BootReceiver", "Boot app launched: $packageName")
+                        // Small delay between launches to avoid overwhelming the system
+                        Thread.sleep(500)
+                    } else {
+                        DebugLog.d("BootReceiver", "No launch intent for boot app: $packageName")
+                    }
+                } catch (e: Exception) {
+                    DebugLog.errorProduction("BootReceiver", "Failed to launch boot app $packageName: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            DebugLog.errorProduction("BootReceiver", "Error launching boot apps: ${e.message}")
+        }
+    }
+
+    /**
+     * Start the BackgroundAppMonitorService if any managed app has keepAlive=true.
+     */
+    private fun startBackgroundMonitorIfNeeded(context: Context) {
+        try {
+            val keepAliveApps = getManagedAppsForKeepAlive(context)
+            if (keepAliveApps.isEmpty()) {
+                DebugLog.d("BootReceiver", "No keep-alive apps configured")
+                return
+            }
+            
+            val serviceIntent = Intent(context, BackgroundAppMonitorService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            DebugLog.d("BootReceiver", "BackgroundAppMonitorService started for ${keepAliveApps.size} apps")
+        } catch (e: Exception) {
+            DebugLog.errorProduction("BootReceiver", "Failed to start BackgroundAppMonitorService: ${e.message}")
+        }
+    }
+
+    /**
+     * Read managed apps from AsyncStorage and return those with allowAccessibility=true.
+     */
+    private fun getManagedAppsWithAccessibility(context: Context): List<String> {
+        return getManagedAppsFiltered(context) { it.optBoolean("allowAccessibility", false) }
+    }
+
+    /**
+     * Read managed apps from AsyncStorage and return those with launchOnBoot=true.
+     */
+    private fun getManagedAppsForBoot(context: Context): List<String> {
+        return getManagedAppsFiltered(context) { it.optBoolean("launchOnBoot", false) }
+    }
+
+    /**
+     * Read managed apps from AsyncStorage and return those with keepAlive=true.
+     */
+    private fun getManagedAppsForKeepAlive(context: Context): List<String> {
+        return getManagedAppsFiltered(context) { it.optBoolean("keepAlive", false) }
+    }
+
+    /**
+     * Generic helper to read managed apps from AsyncStorage with a filter predicate.
+     */
+    private fun getManagedAppsFiltered(context: Context, predicate: (org.json.JSONObject) -> Boolean): List<String> {
+        return try {
+            val dbPath = context.getDatabasePath("RKStorage").absolutePath
+            val db = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.OPEN_READONLY)
+            val cursor = db.rawQuery(
+                "SELECT value FROM catalystLocalStorage WHERE key = ?",
+                arrayOf("@kiosk_managed_apps")
+            )
+            val result = if (cursor.moveToFirst()) {
+                val json = cursor.getString(0) ?: "[]"
+                val apps = org.json.JSONArray(json)
+                val packages = mutableListOf<String>()
+                for (i in 0 until apps.length()) {
+                    val app = apps.getJSONObject(i)
+                    if (predicate(app)) {
+                        packages.add(app.getString("packageName"))
+                    }
+                }
+                packages
+            } else {
+                emptyList()
+            }
+            cursor.close()
+            db.close()
+            result
+        } catch (e: Exception) {
+            DebugLog.d("BootReceiver", "Could not read managed apps: ${e.message}")
+            emptyList()
         }
     }
 

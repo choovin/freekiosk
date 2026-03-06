@@ -18,10 +18,15 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.media.ToneGenerator
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Environment
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
 import android.os.StatFs
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -515,30 +520,33 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
 
     private fun getWifiInfo(): JSONObject {
         return try {
+            val connectivityManager = reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val wifiManager = reactContext.applicationContext
                 .getSystemService(Context.WIFI_SERVICE) as WifiManager
             val wifiInfo = wifiManager.connectionInfo
-            
-            // Check if we have a valid IP address (more reliable than networkId)
-            val ipAddress = getLocalIpAddress()
-            val isConnected = ipAddress != "0.0.0.0" && wifiInfo.rssi != 0
-            
-            // Get SSID - may be <unknown ssid> on Android 8+ without location permission
-            var ssid = wifiInfo.ssid?.replace("\"", "") ?: ""
-            if (ssid == "<unknown ssid>") {
-                ssid = "WiFi" // Friendly name when permission not granted
+
+            // Use ConnectivityManager for reliable WiFi connected check
+            val isConnected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = connectivityManager.activeNetwork
+                val capabilities = connectivityManager.getNetworkCapabilities(network)
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            } else {
+                @Suppress("DEPRECATION")
+                val networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+                networkInfo?.isConnected == true
             }
-            
-            // Calculate signal percentage (rssi is typically -100 to -30 dBm)
+
+            val ssid = getSsidSafe(wifiInfo.ssid)
             val signalLevel = WifiManager.calculateSignalLevel(wifiInfo.rssi, 100)
-            
+
             JSONObject().apply {
                 put("ssid", ssid)
                 put("signalStrength", wifiInfo.rssi)
-                put("signalLevel", signalLevel) // 0-100 percentage
+                put("signalLevel", signalLevel)
                 put("connected", isConnected)
-                put("linkSpeed", wifiInfo.linkSpeed) // Mbps
-                put("frequency", wifiInfo.frequency) // MHz (2.4GHz or 5GHz)
+                put("linkSpeed", wifiInfo.linkSpeed)
+                put("frequency", wifiInfo.frequency)
+                put("ipAddress", getLocalIpAddress())
             }
         } catch (e: Exception) {
             JSONObject().apply {
@@ -548,7 +556,31 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
                 put("connected", false)
                 put("linkSpeed", 0)
                 put("frequency", 0)
+                put("ipAddress", "0.0.0.0")
             }
+        }
+    }
+
+    private fun getSsidSafe(rawSsid: String?): String {
+        val ssid = rawSsid?.replace("\"", "")?.trim() ?: ""
+        if (ssid.isNotEmpty() && ssid != "<unknown ssid>" && ssid != "0x") {
+            return ssid
+        }
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            reactContext, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val locationManager = reactContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            locationManager?.isLocationEnabled == true
+        } else {
+            @Suppress("DEPRECATION")
+            (locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+             locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true)
+        }
+        return when {
+            !hasLocationPermission -> "WiFi (no permission)"
+            !locationEnabled -> "WiFi (location off)"
+            else -> "WiFi"
         }
     }
 
@@ -807,6 +839,50 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
                 return JSONObject().apply {
                     put("executed", true)
                     put("command", command)
+                }
+            }
+            "remoteKey" -> {
+                val key = params?.optString("key", "") ?: ""
+                if (key.isEmpty()) {
+                    return JSONObject().apply {
+                        put("executed", false)
+                        put("command", command)
+                        put("error", "Key name is required")
+                    }
+                }
+                val keyCode = when (key.lowercase()) {
+                    "up" -> KeyEvent.KEYCODE_DPAD_UP
+                    "down" -> KeyEvent.KEYCODE_DPAD_DOWN
+                    "left" -> KeyEvent.KEYCODE_DPAD_LEFT
+                    "right" -> KeyEvent.KEYCODE_DPAD_RIGHT
+                    "select", "center", "enter" -> KeyEvent.KEYCODE_DPAD_CENTER
+                    "back" -> KeyEvent.KEYCODE_BACK
+                    "home" -> KeyEvent.KEYCODE_HOME
+                    "menu" -> KeyEvent.KEYCODE_MENU
+                    "playpause" -> KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+                    "play" -> KeyEvent.KEYCODE_MEDIA_PLAY
+                    "pause" -> KeyEvent.KEYCODE_MEDIA_PAUSE
+                    "stop" -> KeyEvent.KEYCODE_MEDIA_STOP
+                    "next" -> KeyEvent.KEYCODE_MEDIA_NEXT
+                    "previous" -> KeyEvent.KEYCODE_MEDIA_PREVIOUS
+                    "volumeup" -> KeyEvent.KEYCODE_VOLUME_UP
+                    "volumedown" -> KeyEvent.KEYCODE_VOLUME_DOWN
+                    "mute" -> KeyEvent.KEYCODE_VOLUME_MUTE
+                    else -> null
+                }
+                if (keyCode == null) {
+                    return JSONObject().apply {
+                        put("executed", false)
+                        put("command", command)
+                        put("error", "Unknown remote key: $key. Use up, down, left, right, select, back, home, menu, playpause, play, pause, stop, next, previous, volumeup, volumedown, mute")
+                    }
+                }
+                dispatchKeyDown(keyCode)
+                return JSONObject().apply {
+                    put("executed", true)
+                    put("command", command)
+                    put("key", key)
+                    put("keyCode", keyCode)
                 }
             }
             "keyboardKey" -> {

@@ -77,13 +77,19 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   const tapCountRef = useRef<number>(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Managed Apps (multi-app mode, background apps, accessibility whitelist)
+  const [managedApps, setManagedApps] = useState<import('../types/managedApps').ManagedApp[]>([]);
+  const [externalAppMode, setExternalAppMode] = useState<'single' | 'multi'>('single');
+  const externalAppModeRef = useRef<'single' | 'multi'>('single');
+  
   // Spatial proximity detection for N-tap (WebView mode)
   const firstTapXRef = useRef<number>(0);
   const firstTapYRef = useRef<number>(0);
   const TAP_PROXIMITY_RADIUS = 80; // Taps must be within 80px of first tap
   
-  // Return button settings (WebView mode) - Visual indicator only
-  // N-tap detection is handled via onUserInteraction callback from WebView
+  // Return button settings (WebView + Multi-app grid mode)
+  // WebView: N-tap detection via onUserInteraction callback
+  // Multi-app grid: N-tap detection handled directly by ExternalAppOverlay
   const [returnButtonVisible, setReturnButtonVisible] = useState<boolean>(false);
   const [returnTapCount, setReturnTapCount] = useState<number>(5);
   const [returnTapTimeout, setReturnTapTimeout] = useState<number>(1500);
@@ -158,6 +164,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   const [urlFilterList, setUrlFilterList] = useState<string[]>([]);
   const [urlFilterShowFeedback, setUrlFilterShowFeedback] = useState<boolean>(false);
   const [pdfViewerEnabled, setPdfViewerEnabled] = useState<boolean>(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   // AppState listener - détecte quand l'app revient au premier plan
   useEffect(() => {
@@ -165,6 +172,27 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       // L'app revient au premier plan (depuis background ou inactive)
       if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
         try {
+          // CRITICAL: Read current mode from storage to avoid stale closure values
+          // (user may have just switched from single→multi in settings)
+          const currentExternalAppMode = await StorageService.getExternalAppMode();
+          const currentDisplayMode = await StorageService.getDisplayMode();
+          
+          // Multi-app mode: ALWAYS return to grid, never relaunch any specific app
+          if (currentExternalAppMode === 'multi' && currentDisplayMode === 'external_app') {
+            // Still clear voluntary return flag if set
+            const shouldBlock = await KioskModule.shouldBlockAutoRelaunch();
+            if (shouldBlock) {
+              await KioskModule.clearBlockAutoRelaunch();
+            }
+            console.log('[KioskScreen] Multi-app: returning to app grid');
+            setIsAppLaunched(false);
+            setCountdownActive(false); // Cancel any active countdown
+            appStateRef.current = nextAppState;
+            return;
+          }
+          
+          // === Single app mode logic below ===
+          
           // 1. D'abord vérifier le flag natif (5-tap, retour volontaire)
           const shouldBlock = await KioskModule.shouldBlockAutoRelaunch();
           
@@ -197,12 +225,12 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
             return;
           }
           
-          // Mode immediate: relancer directement (pas besoin de autoRelaunchApp)
-          if (displayMode === 'external_app' && externalAppPackage) {
-            console.log('[KioskScreen] Immediate mode: relaunching', externalAppPackage);
-            // Petit délai pour laisser l'UI se stabiliser
+          // Mode immediate: relancer directement
+          const currentPackage = await StorageService.getExternalAppPackage();
+          if (currentDisplayMode === 'external_app' && currentPackage) {
+            console.log('[KioskScreen] Immediate mode: relaunching', currentPackage);
             appLaunchTimeoutRef.current = setTimeout(() => {
-              launchExternalApp(externalAppPackage);
+              launchExternalApp(currentPackage);
             }, 300);
           }
         } catch (error) {
@@ -219,7 +247,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
         clearTimeout(appLaunchTimeoutRef.current);
       }
     };
-  }, [displayMode, externalAppPackage]);
+  }, []);  // No dependencies — reads fresh values from storage every time
 
   // Auto-brightness: pause when screensaver activates, resume when it deactivates
   useEffect(() => {
@@ -655,10 +683,21 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
         setCountdownSeconds(prev => prev - 1);
       }, 1000);
     } else if (countdownActive && countdownSeconds === 0) {
-      // Countdown terminé, relancer l'app
+      // Countdown terminé
       setCountdownActive(false);
-      if (externalAppPackage) {
-        launchExternalApp(externalAppPackage);
+      // Read fresh mode from ref (updated by loadSettings)
+      if (externalAppModeRef.current === 'multi') {
+        // Multi-app mode: return to grid (never relaunch a specific app)
+        console.log('[KioskScreen] Countdown done (multi): returning to grid');
+        setIsAppLaunched(false);
+      } else {
+        // Single-app mode: relaunch from storage to get current package
+        StorageService.getExternalAppPackage().then(pkg => {
+          if (pkg) {
+            console.log('[KioskScreen] Countdown done (single): relaunching', pkg);
+            launchExternalApp(pkg);
+          }
+        }).catch(e => console.error('[KioskScreen] Countdown relaunch error:', e));
       }
     }
 
@@ -1217,6 +1256,17 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       setAllowPowerButton(savedAllowPowerButton);
       setAllowNotifications(savedAllowNotifications);
       
+      // Load managed apps
+      const savedManagedApps = await StorageService.getManagedApps();
+      setManagedApps(savedManagedApps);
+      console.log('[KioskScreen] Loaded managed apps:', savedManagedApps.length);
+      
+      // Load external app sub-mode (single vs multi)
+      const savedExternalAppMode = (str(K.EXTERNAL_APP_MODE) ?? 'single') as 'single' | 'multi';
+      setExternalAppMode(savedExternalAppMode);
+      externalAppModeRef.current = savedExternalAppMode;
+      console.log('[KioskScreen] External app mode:', savedExternalAppMode);
+      
       // Load return button settings (for WebView mode)
       const savedReturnButtonVisible = bool(K.OVERLAY_BUTTON_VISIBLE, true);
       const savedReturnTapCount = num(K.RETURN_TAP_COUNT, 5);
@@ -1315,6 +1365,10 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       const savedPdfViewerEnabled = bool(K.PDF_VIEWER_ENABLED, false);
       setPdfViewerEnabled(savedPdfViewerEnabled);
       
+      // Load WebView Zoom Level
+      const savedZoomLevel = num(K.WEBVIEW_ZOOM_LEVEL, 100);
+      setZoomLevel(savedZoomLevel);
+      
       // Start auto-brightness if enabled (only in webview mode and when app manages brightness)
       if (savedBrightnessManagementEnabled && savedAutoBrightnessEnabled && savedDisplayMode === 'webview') {
         try {
@@ -1389,25 +1443,60 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       }
 
       // Launch external app if in external_app mode
-      console.log('[KioskScreen] Checking external app launch: displayMode=' + savedDisplayMode + ', package=' + savedExternalAppPackage);
-      if (savedDisplayMode === 'external_app' && savedExternalAppPackage) {
-        // Sync test mode and back button mode to native SharedPrefs before starting overlay
-        const savedTestMode = bool(K.EXTERNAL_APP_TEST_MODE, true);
-        const savedBackBtnMode = str(K.BACK_BUTTON_MODE) || 'test';
+      console.log('[KioskScreen] Checking external app launch: displayMode=' + savedDisplayMode + ', package=' + savedExternalAppPackage + ', mode=' + savedExternalAppMode);
+      if (savedDisplayMode === 'external_app') {
+        // Launch managed apps with launchOnBoot=true (both single and multi mode)
         try {
-          await OverlayServiceModule.setTestMode(savedTestMode);
-          console.log('[KioskScreen] Test mode synced to native:', savedTestMode);
+          const bootCount = await AppLauncherModule.launchBootApps();
+          if (bootCount > 0) {
+            console.log(`[KioskScreen] Launched ${bootCount} boot app(s)`);
+            // Give boot apps time to start before launching primary app / showing grid
+            await new Promise<void>(resolve => setTimeout(resolve, 1000));
+          }
         } catch (e) {
-          console.warn('[KioskScreen] Failed to sync test mode:', e);
+          console.warn('[KioskScreen] Failed to launch boot apps:', e);
         }
+
+        // Start keep-alive background monitor if any managed app has keepAlive=true
         try {
-          await OverlayServiceModule.setBackButtonMode(savedBackBtnMode);
-          console.log('[KioskScreen] Back button mode synced to native:', savedBackBtnMode);
+          await AppLauncherModule.startBackgroundMonitor();
+          console.log('[KioskScreen] Background monitor started (will auto-stop if no keep-alive apps)');
         } catch (e) {
-          console.warn('[KioskScreen] Failed to sync back button mode:', e);
+          console.warn('[KioskScreen] Failed to start background monitor:', e);
         }
-        console.log('[KioskScreen] Launching external app:', savedExternalAppPackage);
-        await launchExternalApp(savedExternalAppPackage, savedReturnTapCount, savedReturnTapTimeout, savedReturnMode, savedReturnButtonPosition);
+
+        if (savedExternalAppMode === 'single' && savedExternalAppPackage) {
+          // Single app mode: auto-launch the primary app (classic behavior)
+          // Sync test mode and back button mode to native SharedPrefs before starting overlay
+          const savedTestMode = bool(K.EXTERNAL_APP_TEST_MODE, true);
+          const savedBackBtnMode = str(K.BACK_BUTTON_MODE) || 'test';
+          try {
+            await OverlayServiceModule.setTestMode(savedTestMode);
+            console.log('[KioskScreen] Test mode synced to native:', savedTestMode);
+          } catch (e) {
+            console.warn('[KioskScreen] Failed to sync test mode:', e);
+          }
+          try {
+            await OverlayServiceModule.setBackButtonMode(savedBackBtnMode);
+            console.log('[KioskScreen] Back button mode synced to native:', savedBackBtnMode);
+          } catch (e) {
+            console.warn('[KioskScreen] Failed to sync back button mode:', e);
+          }
+          console.log('[KioskScreen] Launching external app:', savedExternalAppPackage);
+          await launchExternalApp(savedExternalAppPackage, savedReturnTapCount, savedReturnTapTimeout, savedReturnMode, savedReturnButtonPosition);
+        } else if (savedExternalAppMode === 'multi') {
+          // Multi-app mode: don't auto-launch, the grid will be displayed by ExternalAppOverlay
+          console.log('[KioskScreen] Multi-app mode: showing app grid (no auto-launch)');
+          // Still sync overlay settings for when user launches an app from grid
+          const savedTestMode = bool(K.EXTERNAL_APP_TEST_MODE, true);
+          const savedBackBtnMode = str(K.BACK_BUTTON_MODE) || 'test';
+          try {
+            await OverlayServiceModule.setTestMode(savedTestMode);
+            await OverlayServiceModule.setBackButtonMode(savedBackBtnMode);
+          } catch (e) {
+            console.warn('[KioskScreen] Failed to sync overlay settings for multi-app:', e);
+          }
+        }
       } else {
         console.log('[KioskScreen] NOT launching external app - displayMode:', savedDisplayMode, 'package:', savedExternalAppPackage);
       }
@@ -1840,8 +1929,16 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   };
 
   const handleReturnToExternalApp = async (): Promise<void> => {
-    if (externalAppPackage) {
-      await launchExternalApp(externalAppPackage);
+    // Read fresh mode from ref (most up-to-date)
+    if (externalAppModeRef.current === 'multi') {
+      // Multi-app mode: return to the app grid
+      setIsAppLaunched(false);
+    } else {
+      // Single-app mode: read current package from storage (avoid stale state)
+      const currentPkg = await StorageService.getExternalAppPackage();
+      if (currentPkg) {
+        await launchExternalApp(currentPkg);
+      }
     }
   };
 
@@ -1921,13 +2018,21 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
             urlFilterPatterns={urlFilterEnabled ? urlFilterList : undefined}
             urlFilterShowFeedback={urlFilterShowFeedback}
             pdfViewerEnabled={pdfViewerEnabled}
+            zoomLevel={zoomLevel}
           />
         </>
       ) : (
         <ExternalAppOverlay
           externalAppPackage={externalAppPackage}
+          managedApps={managedApps}
+          externalAppMode={externalAppMode}
           isAppLaunched={isAppLaunched}
           backButtonMode={backButtonMode}
+          returnTapCount={returnTapCount}
+          returnMode={returnMode}
+          returnTapTimeout={returnTapTimeout}
+          returnButtonVisible={returnButtonVisible}
+          returnButtonPosition={returnButtonPosition}
           showStatusBar={statusBarEnabled && statusBarOnReturn}
           showBattery={showBattery}
           showWifi={showWifi}
@@ -1936,6 +2041,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
           showTime={showTime}
           onReturnToApp={handleReturnToExternalApp}
           onGoToSettings={handleGoToSettings}
+          onLaunchApp={(pkg) => launchExternalApp(pkg)}
         />
       )}
 

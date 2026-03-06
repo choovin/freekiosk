@@ -9,9 +9,15 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.AudioManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -42,6 +48,27 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
     companion object {
         private const val TAG = "MqttModule"
         private const val NAME = "MqttModule"
+
+        /** Static reference for MQTT health-check from OverlayService watchdog. */
+        @Volatile
+        private var instance: MqttModule? = null
+
+        /**
+         * Check if MQTT should be running but is disconnected, and trigger reconnect.
+         * Called by OverlayService watchdog.
+         */
+        fun checkAndReconnect() {
+            val module = instance ?: return
+            val client = module.mqttClient ?: return
+            if (!client.isConnected()) {
+                Log.i(TAG, "Watchdog: MQTT disconnected, triggering reconnect")
+                client.reconnect()
+            }
+        }
+    }
+
+    init {
+        instance = this
     }
 
     // ==================== MQTT client ====================
@@ -529,18 +556,23 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
 
     private fun getWifiInfo(): JSONObject {
         return try {
+            val connectivityManager = reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val wifiManager = reactContext.applicationContext
                 .getSystemService(Context.WIFI_SERVICE) as WifiManager
             val wifiInfo = wifiManager.connectionInfo
 
-            val ipAddress = getLocalIpAddress()
-            val isConnected = ipAddress != "0.0.0.0" && wifiInfo.rssi != 0
-
-            var ssid = wifiInfo.ssid?.replace("\"", "") ?: ""
-            if (ssid == "<unknown ssid>") {
-                ssid = "WiFi"
+            // Use ConnectivityManager for reliable WiFi connected check
+            val isConnected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = connectivityManager.activeNetwork
+                val capabilities = connectivityManager.getNetworkCapabilities(network)
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            } else {
+                @Suppress("DEPRECATION")
+                val networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+                networkInfo?.isConnected == true
             }
 
+            val ssid = getSsidSafe(wifiInfo.ssid)
             val signalLevel = WifiManager.calculateSignalLevel(wifiInfo.rssi, 100)
 
             JSONObject().apply {
@@ -550,6 +582,7 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
                 put("connected", isConnected)
                 put("linkSpeed", wifiInfo.linkSpeed)
                 put("frequency", wifiInfo.frequency)
+                put("ipAddress", getLocalIpAddress())
             }
         } catch (e: Exception) {
             JSONObject().apply {
@@ -559,7 +592,31 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
                 put("connected", false)
                 put("linkSpeed", 0)
                 put("frequency", 0)
+                put("ipAddress", "0.0.0.0")
             }
+        }
+    }
+
+    private fun getSsidSafe(rawSsid: String?): String {
+        val ssid = rawSsid?.replace("\"", "")?.trim() ?: ""
+        if (ssid.isNotEmpty() && ssid != "<unknown ssid>" && ssid != "0x") {
+            return ssid
+        }
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            reactContext, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val locationManager = reactContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            locationManager?.isLocationEnabled == true
+        } else {
+            @Suppress("DEPRECATION")
+            (locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+             locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true)
+        }
+        return when {
+            !hasLocationPermission -> "WiFi (no permission)"
+            !locationEnabled -> "WiFi (location off)"
+            else -> "WiFi"
         }
     }
 
@@ -686,6 +743,7 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
         try {
             mqttClient?.disconnect()
             mqttClient = null
+            instance = null
             sensorManager?.unregisterListener(this)
             tts?.stop()
             tts?.shutdown()

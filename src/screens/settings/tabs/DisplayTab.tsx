@@ -62,6 +62,10 @@ interface DisplayTabProps {
   keyboardMode: string;
   onKeyboardModeChange: (value: string) => void;
   
+  // WebView Zoom Level
+  zoomLevel: number;
+  onZoomLevelChange: (value: number) => void;
+  
   // Screensaver
   screensaverEnabled: boolean;
   onScreensaverEnabledChange: (value: boolean) => void;
@@ -124,6 +128,8 @@ const DisplayTab: React.FC<DisplayTabProps> = ({
   onShowTimeChange,
   keyboardMode,
   onKeyboardModeChange,
+  zoomLevel,
+  onZoomLevelChange,
   screensaverEnabled,
   onScreensaverEnabledChange,
   screensaverBrightness,
@@ -600,6 +606,35 @@ const DisplayTab: React.FC<DisplayTabProps> = ({
           </View>
         )}
       </SettingsSection>
+      
+      {/* Web Page Zoom - Only in WebView mode */}
+      {displayMode === 'webview' && (
+        <SettingsSection title="Web Page Zoom" icon="magnify">
+          <SettingsSlider
+            label=""
+            hint={`Zoom level: ${zoomLevel}% — Adjusts how web pages are rendered. 100% matches Chrome's default.`}
+            value={zoomLevel}
+            onValueChange={(val) => onZoomLevelChange(Math.round(val))}
+            minimumValue={50}
+            maximumValue={200}
+            step={5}
+            formatValue={(val) => `${Math.round(val)}%`}
+            presets={[
+              { label: '75%', value: 75 },
+              { label: '100%', value: 100 },
+              { label: '125%', value: 125 },
+              { label: '150%', value: 150 },
+            ]}
+          />
+          {zoomLevel !== 100 && (
+            <SettingsInfoBox variant="info">
+              <Text style={styles.infoText}>
+                🔍 Zoom is set to {zoomLevel}%. Tap the "100%" preset to reset to default.
+              </Text>
+            </SettingsInfoBox>
+          )}
+        </SettingsSection>
+      )}
       
       {/* Keyboard Mode - Only in WebView mode */}
       {displayMode === 'webview' && (

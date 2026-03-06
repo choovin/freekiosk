@@ -67,6 +67,7 @@ class AccessibilityModule(private val reactContext: ReactApplicationContext) :
     /**
      * In Device Owner mode, programmatically enable the AccessibilityService.
      * This avoids requiring manual user intervention.
+     * Also permits accessibility services for managed app packages.
      */
     @ReactMethod
     fun enableViaDeviceOwner(promise: Promise) {
@@ -79,12 +80,16 @@ class AccessibilityModule(private val reactContext: ReactApplicationContext) :
                 return
             }
 
-            // Allow FreeKiosk's accessibility service
-            val serviceComponent = ComponentName(reactContext, FreeKioskAccessibilityService::class.java)
-            val permitted = listOf(reactContext.packageName)
-            dpm.setPermittedAccessibilityServices(adminComponent, permitted)
+            // Build permitted list: FreeKiosk + managed apps with allowAccessibility=true
+            val permitted = mutableListOf(reactContext.packageName)
+            permitted.addAll(getManagedAppsWithAccessibility())
             
-            // Enable it via secure settings (Device Owner can write secure settings)
+            // Allow FreeKiosk's accessibility service + managed apps
+            dpm.setPermittedAccessibilityServices(adminComponent, permitted.distinct())
+            Log.d(TAG, "Permitted accessibility services set: $permitted")
+            
+            // Enable FreeKiosk's own accessibility service via secure settings
+            val serviceComponent = ComponentName(reactContext, FreeKioskAccessibilityService::class.java)
             val serviceName = "${reactContext.packageName}/${serviceComponent.className}"
             val currentServices = Settings.Secure.getString(
                 reactContext.contentResolver,
@@ -111,6 +116,73 @@ class AccessibilityModule(private val reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Failed to enable via Device Owner: ${e.message}")
             promise.reject("ERROR", "Failed to enable via Device Owner: ${e.message}")
+        }
+    }
+
+    /**
+     * Update the permitted accessibility services list (Device Owner only).
+     * Called when managed apps configuration changes.
+     * @param packageNames JSON array of package names to permit (in addition to FreeKiosk)
+     */
+    @ReactMethod
+    fun setPermittedAccessibilityPackages(packageNames: com.facebook.react.bridge.ReadableArray, promise: Promise) {
+        try {
+            val dpm = reactContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+            val adminComponent = ComponentName(reactContext, DeviceAdminReceiver::class.java)
+            
+            if (!dpm.isDeviceOwnerApp(reactContext.packageName)) {
+                promise.reject("NOT_DEVICE_OWNER", "This feature requires Device Owner mode")
+                return
+            }
+
+            val permitted = mutableListOf(reactContext.packageName)
+            for (i in 0 until packageNames.size()) {
+                val pkg = packageNames.getString(i)
+                if (!pkg.isNullOrEmpty()) {
+                    permitted.add(pkg)
+                }
+            }
+            
+            dpm.setPermittedAccessibilityServices(adminComponent, permitted.distinct())
+            Log.d(TAG, "Updated permitted accessibility services: $permitted")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set permitted accessibility packages: ${e.message}")
+            promise.reject("ERROR", "Failed to set permitted accessibility packages: ${e.message}")
+        }
+    }
+
+    /**
+     * Read managed apps from AsyncStorage and return those with allowAccessibility=true.
+     */
+    private fun getManagedAppsWithAccessibility(): List<String> {
+        return try {
+            val dbPath = reactContext.getDatabasePath("RKStorage").absolutePath
+            val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbPath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+            val cursor = db.rawQuery(
+                "SELECT value FROM catalystLocalStorage WHERE key = ?",
+                arrayOf("@kiosk_managed_apps")
+            )
+            val result = if (cursor.moveToFirst()) {
+                val json = cursor.getString(0) ?: "[]"
+                val apps = org.json.JSONArray(json)
+                val packages = mutableListOf<String>()
+                for (i in 0 until apps.length()) {
+                    val app = apps.getJSONObject(i)
+                    if (app.optBoolean("allowAccessibility", false)) {
+                        packages.add(app.getString("packageName"))
+                    }
+                }
+                packages
+            } else {
+                emptyList()
+            }
+            cursor.close()
+            db.close()
+            result
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not read managed apps: ${e.message}")
+            emptyList()
         }
     }
 

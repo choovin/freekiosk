@@ -14,7 +14,9 @@ import {
   SettingsButton,
   UrlListEditor,
   ScheduleEventList,
+  ManagedAppsSection,
 } from '../../../components/settings';
+import { ManagedApp } from '../../../types/managedApps';
 import { Colors, Spacing, Typography } from '../../../theme';
 import AppLauncherModule, { AppInfo } from '../../../utils/AppLauncherModule';
 import { ScheduledEvent } from '../../../types/planner';
@@ -33,6 +35,14 @@ interface GeneralTabProps {
   onExternalAppPackageChange: (pkg: string) => void;
   onPickApp: () => void;
   loadingApps: boolean;
+  
+  // External app sub-mode (single vs multi)
+  externalAppMode: 'single' | 'multi';
+  onExternalAppModeChange: (mode: 'single' | 'multi') => void;
+  
+  // Managed apps (multi-app mode)
+  managedApps: ManagedApp[];
+  onManagedAppsChange: (apps: ManagedApp[]) => void;
   
   // Permissions
   hasOverlayPermission: boolean;
@@ -111,6 +121,10 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   onExternalAppPackageChange,
   onPickApp,
   loadingApps,
+  externalAppMode,
+  onExternalAppModeChange,
+  managedApps,
+  onManagedAppsChange,
   hasOverlayPermission,
   onRequestOverlayPermission,
   hasUsageStatsPermission,
@@ -168,45 +182,26 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         <SettingsModeSelector
           options={[
             { value: 'webview', label: 'Website', icon: 'web' },
-            { value: 'external_app', label: 'Android App', icon: 'android', badge: 'BETA', badgeColor: Colors.warning },
+            { value: 'external_app', label: 'Android App', icon: 'android' },
           ]}
           value={displayMode}
           onValueChange={(value) => onDisplayModeChange(value as 'webview' | 'external_app')}
           hint="Choose to display a website or launch an Android application"
         />
         
-        {/* BETA Warning for External App */}
-        {displayMode === 'external_app' && (
-          <>
-            <SettingsInfoBox variant="warning" title="⚠️ BETA Feature">
-              <Text style={styles.infoText}>
-                External App mode is in beta. Some features are not available:{`
+        {/* Device Owner warning for External App */}
+        {displayMode === 'external_app' && !isDeviceOwner && (
+          <SettingsInfoBox variant="error" title="🔒 Device Owner Recommended">
+            <Text style={styles.infoText}>
+              Without Device Owner:{`
 `}
-                • Screensaver{`
+              • Navigation buttons remain accessible{`
 `}
-                • Motion detection{`
+              • User can exit the app freely{`
 `}
-                • Brightness control{`
-
-`}
-                To return to FreeKiosk, tap 5 times on the secret button (position configurable in Security settings).
-              </Text>
-            </SettingsInfoBox>
-            
-            {!isDeviceOwner && (
-              <SettingsInfoBox variant="error" title="🔒 Device Owner Recommended">
-                <Text style={styles.infoText}>
-                  Without Device Owner:{`
-`}
-                  • Navigation buttons remain accessible{`
-`}
-                  • User can exit the app freely{`
-`}
-                  • Lock mode may not work properly
-                </Text>
-              </SettingsInfoBox>
-            )}
-          </>
+              • Lock mode may not work properly
+            </Text>
+          </SettingsInfoBox>
         )}
       </SettingsSection>
       
@@ -324,27 +319,79 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
         </SettingsSection>
       )}
       
-      {/* External App Selection */}
+      {/* External App Sub-Mode Selection */}
       {displayMode === 'external_app' && (
         <>
-          <SettingsSection title="Application" icon="apps">
-            <SettingsInput
-              label="Package Name"
-              value={externalAppPackage}
-              onChangeText={onExternalAppPackageChange}
-              placeholder="com.example.app"
-              hint="Enter package name or select an app"
-            />
-            
-            <SettingsButton
-              title={loadingApps ? 'Loading...' : 'Choose an Application'}
-              icon="format-list-bulleted"
-              variant="success"
-              onPress={onPickApp}
-              disabled={loadingApps}
-              loading={loadingApps}
+          <SettingsSection title="App Mode" icon="apps">
+            <SettingsModeSelector
+              options={[
+                { value: 'single', label: 'Single App', icon: 'cellphone' },
+                { value: 'multi', label: 'Multi App', icon: 'view-grid', badge: 'BETA', badgeColor: Colors.warning },
+              ]}
+              value={externalAppMode}
+              onValueChange={(value) => onExternalAppModeChange(value as 'single' | 'multi')}
+              hint={externalAppMode === 'single'
+                ? 'Launch a single app in kiosk mode (classic behavior)'
+                : 'Display a home screen grid with multiple apps'}
             />
           </SettingsSection>
+          
+          {/* Single App: classic package name + picker */}
+          {externalAppMode === 'single' && (
+            <SettingsSection title="Application" icon="cellphone-link">
+              <SettingsInput
+                label="Package Name"
+                value={externalAppPackage}
+                onChangeText={onExternalAppPackageChange}
+                placeholder="com.example.app"
+                hint="Enter package name or select an app"
+              />
+              
+              <SettingsButton
+                title={loadingApps ? 'Loading...' : 'Choose an Application'}
+                icon="format-list-bulleted"
+                variant="success"
+                onPress={onPickApp}
+                disabled={loadingApps}
+                loading={loadingApps}
+              />
+            </SettingsSection>
+          )}
+          
+          {/* Multi App: managed apps grid */}
+          {externalAppMode === 'multi' && (
+            <SettingsSection title="Applications" icon="view-grid">
+              <SettingsInfoBox variant="info">
+                <Text style={styles.infoText}>
+                  {'📱 Add apps to display on the home screen grid.\n'}
+                  {'Users can choose which app to launch.\n\n'}
+                  {'Toggle options per app: show on home screen, launch on boot, keep alive, accessibility.'}
+                </Text>
+              </SettingsInfoBox>
+              <ManagedAppsSection
+                managedApps={managedApps}
+                onManagedAppsChange={onManagedAppsChange}
+                isDeviceOwner={isDeviceOwner}
+              />
+            </SettingsSection>
+          )}
+          
+          {/* Managed Apps for Single App mode (optional, for background/accessibility features) */}
+          {externalAppMode === 'single' && (
+            <SettingsSection title="Additional Managed Apps" icon="apps">
+              <SettingsInfoBox variant="info">
+                <Text style={styles.infoText}>
+                  {'📋 Optional: add extra apps for background monitoring, boot launch, or accessibility whitelist.\n'}
+                  {'These apps will NOT appear on the home screen in single app mode.'}
+                </Text>
+              </SettingsInfoBox>
+              <ManagedAppsSection
+                managedApps={managedApps}
+                onManagedAppsChange={onManagedAppsChange}
+                isDeviceOwner={isDeviceOwner}
+              />
+            </SettingsSection>
+          )}
           
           {/* Overlay Permission */}
           <SettingsSection

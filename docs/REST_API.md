@@ -445,10 +445,12 @@ Play a short beep sound.
 
 Perfect for controlling Android TV devices or navigating apps.
 
-> ⚠️ **Important**: Remote key events are injected into the **FreeKiosk app process** using `Instrumentation.sendKeyDownUpSync()`. This means:
-> - Keys work within the FreeKiosk WebView (e.g., navigating a web page)
-> - Keys do **not** propagate to external apps or the Android launcher
-> - For external app control, consider using ADB commands via a separate tool
+> **How it works**: Remote key events are dispatched natively using the **AccessibilityService** (cross-app, works in external apps) or `activity.dispatchKeyEvent()` (fallback, FreeKiosk only). When the AccessibilityService is enabled:
+> - Keys work across **all apps** (WebView, external apps, Android launcher)
+> - D-pad navigation highlights UI elements (buttons, links, inputs)
+> - Back, Home, and Recents trigger the corresponding system actions
+>
+> Without the AccessibilityService, keys only work within FreeKiosk's own Activity.
 
 | Endpoint | Key |
 |----------|-----|

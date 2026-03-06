@@ -40,6 +40,22 @@ export default {
   },
 
   /**
+   * Check if the app has permission to install APKs from unknown sources.
+   * Returns true on Android < 8.0 (no per-app setting).
+   */
+  checkInstallPermission(): Promise<boolean> {
+    return UpdateModule.checkInstallPermission();
+  },
+
+  /**
+   * Open the system settings page to allow installing from unknown sources.
+   * May fail on Fire OS / restricted devices.
+   */
+  openInstallPermissionSettings(): Promise<boolean> {
+    return UpdateModule.openInstallPermissionSettings();
+  },
+
+  /**
    * Download and install an update
    * @param downloadUrl - Direct download URL for the APK
    * @param version - Version string for display

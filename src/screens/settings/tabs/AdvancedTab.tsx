@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, AppState, NativeModules } from 'react-native';
 import {
   SettingsSection,
   SettingsButton,
@@ -16,6 +16,8 @@ import { MqttSettingsSection } from '../../../components/MqttSettingsSection';
 import { CertificateInfo } from '../../../utils/CertificateModule';
 import AccessibilityModule from '../../../utils/AccessibilityModule';
 import { Colors, Spacing, Typography } from '../../../theme';
+
+const { KioskModule } = NativeModules;
 
 interface AdvancedTabProps {
   displayMode: 'webview' | 'external_app';
@@ -266,10 +268,79 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
             ✅ Keyboard emulation is available for all apps (WebView + External Apps).
           </Text>
         )}
+
+        {isDeviceOwner && displayMode === 'external_app' && (
+          <SettingsInfoBox variant="info" title="🔧 Managed Apps Accessibility">
+            <Text style={styles.infoText}>
+              You can allow other apps' accessibility services in the "Managed Apps" section of the General tab.{'\n'}
+              Toggle "Allow Accessibility" per app to whitelist their accessibility services via Device Owner.
+            </Text>
+          </SettingsInfoBox>
+        )}
       </SettingsSection>
 
       {/* Backup & Restore */}
       <BackupRestoreSection onRestoreComplete={onRestoreComplete} />
+
+      {/* Android System Settings */}
+      <SettingsSection title="Android System Settings" icon="android">
+        <Text style={styles.hint}>
+          Open native Android settings to change WiFi, volume, display and more.
+          Useful when your device has no physical navigation buttons.
+        </Text>
+        {kioskEnabled && (
+          <SettingsInfoBox variant="info" title="🔒 Kiosk Mode Active">
+            <Text style={styles.infoText}>
+              Kiosk mode will be temporarily paused to open Android settings.{' '}
+              It will automatically re-engage when you return to FreeKiosk.
+            </Text>
+          </SettingsInfoBox>
+        )}
+        <SettingsButton
+          title="Open Android Settings"
+          icon="cog"
+          variant="primary"
+          onPress={() => KioskModule.openAndroidSettings(null)}
+        />
+        <View style={styles.settingsShortcuts}>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('wifi')}
+          >
+            <Text style={styles.shortcutText}>📶 WiFi</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('sound')}
+          >
+            <Text style={styles.shortcutText}>🔊 Sound</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('display')}
+          >
+            <Text style={styles.shortcutText}>🔆 Display</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('bluetooth')}
+          >
+            <Text style={styles.shortcutText}>📡 Bluetooth</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('date')}
+          >
+            <Text style={styles.shortcutText}>📅 Date & Time</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shortcutButton}
+            onPress={() => KioskModule.openAndroidSettings('apps')}
+          >
+            <Text style={styles.shortcutText}>📱 Apps</Text>
+          </TouchableOpacity>
+        </View>
+      </SettingsSection>
 
       {/* Actions */}
       <SettingsSection title="Actions" icon="cog-outline">
@@ -409,6 +480,28 @@ const styles = StyleSheet.create({
   accessibilityStatusText: {
     ...Typography.label,
     fontSize: 13,
+  },
+  settingsShortcuts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  shortcutButton: {
+    flex: 1,
+    minWidth: '30%',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Spacing.inputRadius,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceVariant,
+  },
+  shortcutText: {
+    ...Typography.label,
+    fontSize: 13,
+    color: Colors.textSecondary,
   },
   versionFooter: {
     ...Typography.hint,

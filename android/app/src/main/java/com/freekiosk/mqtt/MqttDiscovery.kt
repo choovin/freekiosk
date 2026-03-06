@@ -242,7 +242,17 @@ class MqttDiscovery(
             ButtonDef("wake", "Wake", "$baseTopic/$topicId/set/wake", "mdi:alarm"),
             ButtonDef("reboot", "Reboot", "$baseTopic/$topicId/set/reboot", "mdi:restart"),
             ButtonDef("clear_cache", "Clear Cache", "$baseTopic/$topicId/set/clear_cache", "mdi:delete-sweep"),
-            ButtonDef("lock", "Lock", "$baseTopic/$topicId/set/lock", "mdi:lock")
+            ButtonDef("lock", "Lock", "$baseTopic/$topicId/set/lock", "mdi:lock"),
+            // Remote control buttons
+            ButtonDef("remote_up", "Remote Up", "$baseTopic/$topicId/set/remote_up", "mdi:arrow-up-bold"),
+            ButtonDef("remote_down", "Remote Down", "$baseTopic/$topicId/set/remote_down", "mdi:arrow-down-bold"),
+            ButtonDef("remote_left", "Remote Left", "$baseTopic/$topicId/set/remote_left", "mdi:arrow-left-bold"),
+            ButtonDef("remote_right", "Remote Right", "$baseTopic/$topicId/set/remote_right", "mdi:arrow-right-bold"),
+            ButtonDef("remote_select", "Remote Select", "$baseTopic/$topicId/set/remote_select", "mdi:radiobox-marked"),
+            ButtonDef("remote_back", "Remote Back", "$baseTopic/$topicId/set/remote_back", "mdi:arrow-left-circle"),
+            ButtonDef("remote_home", "Remote Home", "$baseTopic/$topicId/set/remote_home", "mdi:home"),
+            ButtonDef("remote_menu", "Remote Menu", "$baseTopic/$topicId/set/remote_menu", "mdi:menu"),
+            ButtonDef("remote_playpause", "Remote Play/Pause", "$baseTopic/$topicId/set/remote_playpause", "mdi:play-pause")
         )
 
         return buttons.map { button ->
@@ -267,7 +277,11 @@ class MqttDiscovery(
         val texts = listOf(
             TextDef("navigate_url", "Navigate URL", "$baseTopic/$topicId/set/url", "{{ value_json.webview.currentUrl }}", "mdi:web"),
             TextDef("tts", "Text to Speech", "$baseTopic/$topicId/set/tts", "{{ '' }}", "mdi:speaker-message"),
-            TextDef("toast", "Toast Message", "$baseTopic/$topicId/set/toast", "{{ '' }}", "mdi:message-text")
+            TextDef("toast", "Toast Message", "$baseTopic/$topicId/set/toast", "{{ '' }}", "mdi:message-text"),
+            // Keyboard emulation
+            TextDef("keyboard_key", "Keyboard Key", "$baseTopic/$topicId/set/keyboard_key", "{{ '' }}", "mdi:keyboard"),
+            TextDef("keyboard_combo", "Keyboard Combo", "$baseTopic/$topicId/set/keyboard_combo", "{{ '' }}", "mdi:keyboard-variant"),
+            TextDef("keyboard_text", "Keyboard Text", "$baseTopic/$topicId/set/keyboard_text", "{{ '' }}", "mdi:form-textbox")
         )
 
         return texts.map { text ->
