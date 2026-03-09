@@ -184,6 +184,34 @@ class AppLauncherModule(reactContext: ReactApplicationContext) : ReactContextBas
         }
     }
 
+    @ReactMethod
+    fun getAppIcon(packageName: String, size: Int, promise: Promise) {
+        executor.execute {
+            try {
+                val pm = reactApplicationContext.packageManager
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                val drawable = pm.getApplicationIcon(appInfo)
+                
+                val targetSize = if (size > 0) size else 96
+                val bitmap = android.graphics.Bitmap.createBitmap(targetSize, targetSize, android.graphics.Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bitmap)
+                drawable.setBounds(0, 0, targetSize, targetSize)
+                drawable.draw(canvas)
+                
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                bitmap.recycle()
+                
+                val base64 = android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+                promise.resolve("data:image/png;base64,$base64")
+            } catch (e: PackageManager.NameNotFoundException) {
+                promise.reject("APP_NOT_FOUND", "Application with package name $packageName is not installed")
+            } catch (e: Exception) {
+                promise.reject("ERROR_GET_ICON", "Failed to get app icon: ${e.message}")
+            }
+        }
+    }
+
     /**
      * Verify external app is in foreground before broadcasting EXTERNAL_APP_LAUNCHED
      * Retries up to 10 times with 500ms delay to ensure app has time to start
@@ -259,6 +287,135 @@ class AppLauncherModule(reactContext: ReactApplicationContext) : ReactContextBas
         reactApplicationContext
             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
             .emit(eventName, params)
+    }
+
+    /**
+     * Launch all managed apps that have launchOnBoot=true.
+     * Called from JS when entering kiosk mode (not just at system boot).
+     */
+    @ReactMethod
+    fun launchBootApps(promise: Promise) {
+        executor.execute {
+            try {
+                val apps = getManagedAppsFiltered { it.optBoolean("launchOnBoot", false) }
+                if (apps.isEmpty()) {
+                    DebugLog.d("AppLauncherModule", "No boot apps to launch")
+                    promise.resolve(0)
+                    return@execute
+                }
+                
+                val pm = reactApplicationContext.packageManager
+                var launchedCount = 0
+                for (packageName in apps) {
+                    try {
+                        pm.getPackageInfo(packageName, 0)
+                        val launchIntent = pm.getLaunchIntentForPackage(packageName)
+                        if (launchIntent != null) {
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            reactApplicationContext.startActivity(launchIntent)
+                            launchedCount++
+                            DebugLog.d("AppLauncherModule", "Boot app launched: $packageName")
+                            Thread.sleep(800) // Delay to let the app initialize
+                        }
+                    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                        DebugLog.d("AppLauncherModule", "Boot app not installed: $packageName")
+                    } catch (e: Exception) {
+                        DebugLog.errorProduction("AppLauncherModule", "Failed to launch boot app $packageName: ${e.message}")
+                    }
+                }
+                
+                // Bring FreeKiosk back to the foreground after launching all boot apps
+                if (launchedCount > 0) {
+                    try {
+                        Thread.sleep(500)
+                        val bringBackIntent = Intent(reactApplicationContext, MainActivity::class.java)
+                        bringBackIntent.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+                        reactApplicationContext.startActivity(bringBackIntent)
+                        DebugLog.d("AppLauncherModule", "FreeKiosk brought back to front after $launchedCount boot app(s)")
+                    } catch (e: Exception) {
+                        DebugLog.d("AppLauncherModule", "Failed to bring FreeKiosk to front: ${e.message}")
+                    }
+                }
+                promise.resolve(launchedCount)
+            } catch (e: Exception) {
+                promise.reject("ERROR_LAUNCH_BOOT", "Failed to launch boot apps: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Start the BackgroundAppMonitorService for keep-alive apps.
+     * Called from JS when entering kiosk mode.
+     */
+    @ReactMethod
+    fun startBackgroundMonitor(promise: Promise) {
+        try {
+            val serviceIntent = Intent(reactApplicationContext, BackgroundAppMonitorService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                reactApplicationContext.startForegroundService(serviceIntent)
+            } else {
+                reactApplicationContext.startService(serviceIntent)
+            }
+            DebugLog.d("AppLauncherModule", "BackgroundAppMonitorService started from JS")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLog.errorProduction("AppLauncherModule", "Failed to start BackgroundAppMonitorService: ${e.message}")
+            promise.reject("ERROR_START_MONITOR", "Failed to start background monitor: ${e.message}")
+        }
+    }
+
+    /**
+     * Stop the BackgroundAppMonitorService.
+     */
+    @ReactMethod
+    fun stopBackgroundMonitor(promise: Promise) {
+        try {
+            val serviceIntent = Intent(reactApplicationContext, BackgroundAppMonitorService::class.java)
+            reactApplicationContext.stopService(serviceIntent)
+            DebugLog.d("AppLauncherModule", "BackgroundAppMonitorService stopped from JS")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            DebugLog.errorProduction("AppLauncherModule", "Failed to stop BackgroundAppMonitorService: ${e.message}")
+            promise.reject("ERROR_STOP_MONITOR", "Failed to stop background monitor: ${e.message}")
+        }
+    }
+
+    /**
+     * Read managed apps from AsyncStorage with a filter predicate.
+     */
+    private fun getManagedAppsFiltered(predicate: (org.json.JSONObject) -> Boolean): List<String> {
+        return try {
+            val dbPath = reactApplicationContext.getDatabasePath("RKStorage").absolutePath
+            val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbPath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+            val cursor = db.rawQuery(
+                "SELECT value FROM catalystLocalStorage WHERE key = ?",
+                arrayOf("@kiosk_managed_apps")
+            )
+            val result = if (cursor.moveToFirst()) {
+                val json = cursor.getString(0) ?: "[]"
+                val apps = org.json.JSONArray(json)
+                val packages = mutableListOf<String>()
+                for (i in 0 until apps.length()) {
+                    val app = apps.getJSONObject(i)
+                    if (predicate(app)) {
+                        packages.add(app.getString("packageName"))
+                    }
+                }
+                packages
+            } else {
+                emptyList()
+            }
+            cursor.close()
+            db.close()
+            result
+        } catch (e: Exception) {
+            DebugLog.d("AppLauncherModule", "Could not read managed apps: ${e.message}")
+            emptyList()
+        }
     }
 
     override fun onCatalystInstanceDestroy() {

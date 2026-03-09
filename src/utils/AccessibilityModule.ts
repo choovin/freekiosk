@@ -19,8 +19,16 @@ interface IAccessibilityModule {
   /**
    * In Device Owner mode, programmatically enable the AccessibilityService
    * without requiring manual user intervention.
+   * Also applies the managed apps accessibility whitelist.
    */
   enableViaDeviceOwner(): Promise<boolean>;
+
+  /**
+   * Update the list of packages permitted to use accessibility services.
+   * Device Owner only. FreeKiosk's own package is always included.
+   * @param packageNames Array of additional package names to permit
+   */
+  setPermittedAccessibilityPackages(packageNames: string[]): Promise<boolean>;
 }
 
 const AccessibilityModule: IAccessibilityModule =
@@ -31,6 +39,7 @@ const AccessibilityModule: IAccessibilityModule =
         isAccessibilityServiceRunning: () => Promise.resolve(false),
         openAccessibilitySettings: () => Promise.resolve(false),
         enableViaDeviceOwner: () => Promise.resolve(false),
+        setPermittedAccessibilityPackages: () => Promise.resolve(false),
       };
 
 export default AccessibilityModule;

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlockingRegion } from '../types/blockingOverlay';
 import { ScreenScheduleRule } from '../types/screenScheduler';
 import { DashboardTile } from '../types/dashboard';
+import { ManagedApp } from '../types/managedApps';
 import { saveSecureApiKey, getSecureApiKey, clearSecureApiKey, clearSecureMqttPassword } from './secureStorage';
 
 const KEYS = {
@@ -20,6 +21,7 @@ const KEYS = {
   DEFAULT_BRIGHTNESS: '@default_brightness',
   DISPLAY_MODE: '@kiosk_display_mode',
   EXTERNAL_APP_PACKAGE: '@kiosk_external_app_package',
+  EXTERNAL_APP_MODE: '@kiosk_external_app_mode', // 'single' | 'multi'
   AUTO_RELAUNCH_APP: '@kiosk_auto_relaunch_app',
   OVERLAY_BUTTON_VISIBLE: '@kiosk_overlay_button_visible',
   OVERLAY_BUTTON_POSITION: '@kiosk_overlay_button_position',
@@ -98,6 +100,8 @@ const KEYS = {
   URL_FILTER_SHOW_FEEDBACK: '@kiosk_url_filter_show_feedback',
   // PDF Viewer
   PDF_VIEWER_ENABLED: '@kiosk_pdf_viewer_enabled',
+  // WebView Zoom Level
+  WEBVIEW_ZOOM_LEVEL: '@kiosk_webview_zoom_level',
   // MQTT (Home Assistant integration)
   MQTT_ENABLED: '@kiosk_mqtt_enabled',
   MQTT_BROKER_URL: '@kiosk_mqtt_broker_url',
@@ -112,6 +116,8 @@ const KEYS = {
   MQTT_MOTION_ALWAYS_ON: '@kiosk_mqtt_motion_always_on',
   // Beta Updates
   BETA_UPDATES_ENABLED: '@kiosk_beta_updates_enabled',
+  // Managed Apps (multi-app mode, background apps, accessibility whitelist)
+  MANAGED_APPS: '@kiosk_managed_apps',
   // Legacy keys for backward compatibility
   SCREENSAVER_DELAY: '@screensaver_delay',
   MOTION_DETECTION_ENABLED: '@motion_detection_enabled',
@@ -238,6 +244,7 @@ export const StorageService = {
         KEYS.DEFAULT_BRIGHTNESS,
         KEYS.DISPLAY_MODE,
         KEYS.EXTERNAL_APP_PACKAGE,
+        KEYS.EXTERNAL_APP_MODE,
         KEYS.AUTO_RELAUNCH_APP,
         KEYS.OVERLAY_BUTTON_VISIBLE,
         KEYS.OVERLAY_BUTTON_POSITION,
@@ -316,6 +323,8 @@ export const StorageService = {
         KEYS.URL_FILTER_SHOW_FEEDBACK,
         // PDF Viewer
         KEYS.PDF_VIEWER_ENABLED,
+        // WebView Zoom Level
+        KEYS.WEBVIEW_ZOOM_LEVEL,
         // MQTT
         KEYS.MQTT_ENABLED,
         KEYS.MQTT_BROKER_URL,
@@ -331,6 +340,8 @@ export const StorageService = {
         // Dashboard
         KEYS.DASHBOARD_MODE_ENABLED,
         KEYS.DASHBOARD_TILES,
+        // Managed Apps
+        KEYS.MANAGED_APPS,
         // Legacy keys
         KEYS.SCREENSAVER_DELAY,
         KEYS.MOTION_DETECTION_ENABLED,
@@ -627,6 +638,25 @@ export const StorageService = {
     }
   },
 
+  //EXTERNAL APP MODE (single vs multi)
+  saveExternalAppMode: async (mode: 'single' | 'multi'): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(KEYS.EXTERNAL_APP_MODE, mode);
+    } catch (error) {
+      console.error('Error saving external app mode:', error);
+    }
+  },
+
+  getExternalAppMode: async (): Promise<'single' | 'multi'> => {
+    try {
+      const value = await AsyncStorage.getItem(KEYS.EXTERNAL_APP_MODE);
+      return value === 'multi' ? 'multi' : 'single'; // Default 'single' for backward compat
+    } catch (error) {
+      console.error('Error getting external app mode:', error);
+      return 'single';
+    }
+  },
+
   //AUTO RELAUNCH APP
   saveAutoRelaunchApp: async (value: boolean): Promise<void> => {
     try {
@@ -645,6 +675,77 @@ export const StorageService = {
       return true;
     }
   },
+
+  // ======== MANAGED APPS (Multi-App Mode / Background Apps / Accessibility Whitelist) ========
+
+  saveManagedApps: async (apps: ManagedApp[]): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(KEYS.MANAGED_APPS, JSON.stringify(apps));
+    } catch (error) {
+      console.error('Error saving managed apps:', error);
+    }
+  },
+
+  getManagedApps: async (): Promise<ManagedApp[]> => {
+    try {
+      const value = await AsyncStorage.getItem(KEYS.MANAGED_APPS);
+      if (!value) return [];
+      const parsed = JSON.parse(value);
+      // Ensure backward compatibility: add missing fields with defaults
+      return parsed.map((app: any) => ({
+        packageName: app.packageName || '',
+        displayName: app.displayName || app.packageName || '',
+        showOnHomeScreen: app.showOnHomeScreen ?? true,
+        launchOnBoot: app.launchOnBoot ?? false,
+        keepAlive: app.keepAlive ?? false,
+        allowAccessibility: app.allowAccessibility ?? false,
+      }));
+    } catch (error) {
+      console.error('Error getting managed apps:', error);
+      return [];
+    }
+  },
+
+  addManagedApp: async (app: ManagedApp): Promise<ManagedApp[]> => {
+    try {
+      const current = await StorageService.getManagedApps();
+      // Avoid duplicates by package name
+      const filtered = current.filter(a => a.packageName !== app.packageName);
+      const updated = [...filtered, app];
+      await StorageService.saveManagedApps(updated);
+      return updated;
+    } catch (error) {
+      console.error('Error adding managed app:', error);
+      return [];
+    }
+  },
+
+  removeManagedApp: async (packageName: string): Promise<ManagedApp[]> => {
+    try {
+      const current = await StorageService.getManagedApps();
+      const updated = current.filter(a => a.packageName !== packageName);
+      await StorageService.saveManagedApps(updated);
+      return updated;
+    } catch (error) {
+      console.error('Error removing managed app:', error);
+      return [];
+    }
+  },
+
+  updateManagedApp: async (packageName: string, updates: Partial<ManagedApp>): Promise<ManagedApp[]> => {
+    try {
+      const current = await StorageService.getManagedApps();
+      const updated = current.map(a =>
+        a.packageName === packageName ? { ...a, ...updates } : a
+      );
+      await StorageService.saveManagedApps(updated);
+      return updated;
+    } catch (error) {
+      console.error('Error updating managed app:', error);
+      return [];
+    }
+  },
+
   //OVERLAY BUTTON VISIBLE
   saveOverlayButtonVisible: async (value: boolean): Promise<void> => {
     try {
@@ -1729,6 +1830,26 @@ export const StorageService = {
     } catch (error) {
       console.error('Error getting PDF viewer enabled:', error);
       return false;
+    }
+  },
+
+  // ============ WebView Zoom Level ============
+
+  saveWebViewZoomLevel: async (value: number): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(KEYS.WEBVIEW_ZOOM_LEVEL, JSON.stringify(value));
+    } catch (error) {
+      console.error('Error saving WebView zoom level:', error);
+    }
+  },
+
+  getWebViewZoomLevel: async (): Promise<number> => {
+    try {
+      const value = await AsyncStorage.getItem(KEYS.WEBVIEW_ZOOM_LEVEL);
+      return value ? JSON.parse(value) : 100;
+    } catch (error) {
+      console.error('Error getting WebView zoom level:', error);
+      return 100;
     }
   },
 

@@ -119,6 +119,17 @@
           android:value="kiosk_overlay"/>
       </service>
 
+      <!-- Service for monitoring keep-alive managed apps -->
+      <service
+        android:name=".BackgroundAppMonitorService"
+        android:enabled="true"
+        android:exported="false"
+        android:foregroundServiceType="specialUse">
+        <property
+          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+          android:value="background_app_monitor"/>
+      </service>
+
       <!-- Receiver for silent installation results -->
       <receiver
         android:name=".UpdateInstallReceiver"

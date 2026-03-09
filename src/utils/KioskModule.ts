@@ -32,6 +32,8 @@ interface KioskModuleInterface {
   // Pending ADB config (SharedPreferences bridge)
   getPendingAdbConfig(): Promise<Record<string, string> | null>;
   clearPendingAdbConfig(): Promise<boolean>;
+  // Open native Android settings
+  openAndroidSettings(settingsPage?: string | null): Promise<boolean>;
 }
 
 const { KioskModule } = NativeModules;

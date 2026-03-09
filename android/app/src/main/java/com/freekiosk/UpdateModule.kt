@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.facebook.react.bridge.*
 import org.json.JSONObject
@@ -154,6 +155,52 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         }.start()
     }
 
+    /**
+     * Check if the app has permission to install APKs from unknown sources.
+     * On API < 26, this is always true (global setting, not per-app).
+     */
+    @ReactMethod
+    fun checkInstallPermission(promise: Promise) {
+        try {
+            val canInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                reactApplicationContext.packageManager.canRequestPackageInstalls()
+            } else {
+                true
+            }
+            promise.resolve(canInstall)
+        } catch (e: Exception) {
+            promise.reject("ERROR", "Failed to check install permission: ${e.message}")
+        }
+    }
+
+    /**
+     * Open the system settings page to allow installing from unknown sources.
+     * On Fire OS / restricted devices this may not be available.
+     */
+    @ReactMethod
+    fun openInstallPermissionSettings(promise: Promise) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${reactApplicationContext.packageName}")
+                )
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                reactApplicationContext.startActivity(intent)
+                promise.resolve(true)
+            } else {
+                // On older Android, open general security settings
+                val intent = Intent(Settings.ACTION_SECURITY_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                reactApplicationContext.startActivity(intent)
+                promise.resolve(true)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("UpdateModule", "Cannot open install permission settings: ${e.message}")
+            promise.reject("SETTINGS_UNAVAILABLE", "Cannot open install permission settings. This device may not support installing apps from unknown sources. Use 'adb install -r <apk>' instead.")
+        }
+    }
+
     @ReactMethod
     fun downloadAndInstall(downloadUrl: String, version: String, promise: Promise) {
         try {
@@ -166,12 +213,26 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
             
             updatePromise = promise
             
+            // Clean up old downloaded APKs
+            try {
+                val downloadsDir = reactApplicationContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                downloadsDir?.listFiles()?.forEach { file ->
+                    if (file.name.startsWith("FreeKiosk-") && file.name.endsWith(".apk")) {
+                        file.delete()
+                        android.util.Log.d("UpdateModule", "Cleaned up old APK: ${file.name}")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("UpdateModule", "Failed to clean up old APKs: ${e.message}")
+            }
+            
             val fileName = "FreeKiosk-${version}.apk"
             val request = DownloadManager.Request(Uri.parse(downloadUrl)).apply {
                 setTitle("FreeKiosk Update")
                 setDescription("Downloading version $version")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                // Use app-private external dir: no WRITE_EXTERNAL_STORAGE permission needed
+                setDestinationInExternalFilesDir(reactApplicationContext, Environment.DIRECTORY_DOWNLOADS, fileName)
                 setAllowedOverMetered(true)
                 setAllowedOverRoaming(true)
                 addRequestHeader("User-Agent", "FreeKiosk-Updater")
@@ -367,6 +428,25 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         
         // Fallback to normal install method
         android.util.Log.d("UpdateModule", "Starting normal APK install from URI: $uri")
+        
+        // Check install permission on API 26+ (non-Device Owner)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!reactApplicationContext.packageManager.canRequestPackageInstalls()) {
+                android.util.Log.w("UpdateModule", "Install from unknown sources not permitted, opening settings")
+                try {
+                    val settingsIntent = Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${reactApplicationContext.packageName}")
+                    )
+                    settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    reactApplicationContext.startActivity(settingsIntent)
+                } catch (e: Exception) {
+                    android.util.Log.e("UpdateModule", "Cannot open install permission settings: ${e.message}")
+                }
+                // Still attempt the install - the system may prompt the user
+            }
+        }
+        
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION

@@ -1,8 +1,14 @@
 package com.freekiosk.mqtt
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
@@ -78,6 +84,121 @@ class KioskMqttClient(
     private var reconnectDelay = 1000L
     private val maxReconnectDelay = 30000L
 
+    // ==================== Locks for background persistence ====================
+
+    /** WiFi lock to prevent WiFi from sleeping when screen is off. */
+    private var wifiLock: WifiManager.WifiLock? = null
+
+    /** CPU wake lock to keep CPU alive for MQTT PING packets. */
+    private var cpuWakeLock: PowerManager.WakeLock? = null
+
+    /** Network callback for instant reconnect when WiFi comes back. */
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    /**
+     * Acquire WifiLock + WakeLock to keep MQTT alive when screen is off.
+     */
+    private fun acquireLocks() {
+        try {
+            if (wifiLock == null) {
+                val wifiManager = context.applicationContext
+                    .getSystemService(Context.WIFI_SERVICE) as WifiManager
+                wifiLock = wifiManager.createWifiLock(
+                    WifiManager.WIFI_MODE_FULL_HIGH_PERF, "FreeKiosk:MqttClient")
+                wifiLock?.acquire()
+                Log.d(TAG, "WiFi lock acquired")
+            }
+            if (cpuWakeLock == null) {
+                val powerManager = context
+                    .getSystemService(Context.POWER_SERVICE) as PowerManager
+                cpuWakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK, "FreeKiosk:MqttCPU")
+                cpuWakeLock?.acquire()
+                Log.d(TAG, "CPU wake lock acquired")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire locks: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Release WifiLock + WakeLock.
+     */
+    private fun releaseLocks() {
+        try {
+            wifiLock?.let { if (it.isHeld) it.release() }
+            wifiLock = null
+            cpuWakeLock?.let { if (it.isHeld) it.release() }
+            cpuWakeLock = null
+            Log.d(TAG, "Locks released")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release locks: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Register a NetworkCallback to detect WiFi availability changes.
+     * Triggers immediate reconnect when WiFi comes back.
+     */
+    private fun registerNetworkCallback() {
+        try {
+            if (networkCallback != null) return
+
+            val connectivityManager = context
+                .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+            val request = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build()
+
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.i(TAG, "WiFi available — checking MQTT connection")
+                    if (!_isConnected && !disconnectRequested) {
+                        reconnectDelay = 1000L // reset backoff
+                        mainHandler.postDelayed({
+                            if (!_isConnected && !disconnectRequested) {
+                                Log.i(TAG, "WiFi restored, triggering MQTT reconnect")
+                                if (mqttClient != null) {
+                                    sendConnect()
+                                } else {
+                                    connect()
+                                }
+                            }
+                        }, 2000) // 2s delay for network to stabilize
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    Log.w(TAG, "WiFi lost")
+                }
+            }
+
+            connectivityManager.registerNetworkCallback(request, callback)
+            networkCallback = callback
+            Log.d(TAG, "Network callback registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register network callback: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Unregister the NetworkCallback.
+     */
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let {
+                val connectivityManager = context
+                    .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                connectivityManager.unregisterNetworkCallback(it)
+                Log.d(TAG, "Network callback unregistered")
+            }
+            networkCallback = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unregister network callback: ${e.message}", e)
+        }
+    }
+
     // ==================== Callbacks ====================
 
     /** Lambda invoked when a command is received via MQTT. */
@@ -130,6 +251,10 @@ class KioskMqttClient(
         }
 
         disconnectRequested = false
+
+        // Acquire locks to keep WiFi + CPU alive for MQTT
+        acquireLocks()
+        registerNetworkCallback()
 
         try {
             val protocol = if (config.useTls) "ssl" else "tcp"
@@ -198,6 +323,8 @@ class KioskMqttClient(
     fun disconnect() {
         disconnectRequested = true
         stopStatusPublishing()
+        unregisterNetworkCallback()
+        releaseLocks()
 
         val client = mqttClient
         if (client != null) {
@@ -369,6 +496,8 @@ class KioskMqttClient(
     private fun cleanup() {
         _isConnected = false
         stopStatusPublishing()
+        unregisterNetworkCallback()
+        releaseLocks()
         mqttClient = null
         mainHandler.post {
             onConnectionChanged?.invoke(false)
@@ -544,6 +673,22 @@ class KioskMqttClient(
                 val on = payload.uppercase() == "ON"
                 "setMotionAlwaysOn" to JSONObject().put("value", on)
             }
+
+            // Remote control (D-pad navigation, media keys)
+            "remote_up" -> "remoteKey" to JSONObject().put("key", "up")
+            "remote_down" -> "remoteKey" to JSONObject().put("key", "down")
+            "remote_left" -> "remoteKey" to JSONObject().put("key", "left")
+            "remote_right" -> "remoteKey" to JSONObject().put("key", "right")
+            "remote_select" -> "remoteKey" to JSONObject().put("key", "select")
+            "remote_back" -> "remoteKey" to JSONObject().put("key", "back")
+            "remote_home" -> "remoteKey" to JSONObject().put("key", "home")
+            "remote_menu" -> "remoteKey" to JSONObject().put("key", "menu")
+            "remote_playpause" -> "remoteKey" to JSONObject().put("key", "playpause")
+
+            // Keyboard emulation
+            "keyboard_key" -> "keyboardKey" to JSONObject().put("key", payload)
+            "keyboard_combo" -> "keyboardCombo" to JSONObject().put("map", payload)
+            "keyboard_text" -> "keyboardText" to JSONObject().put("text", payload)
 
             else -> null to null
         }

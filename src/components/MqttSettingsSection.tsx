@@ -267,12 +267,21 @@ export const MqttSettingsSection: React.FC<MqttSettingsSectionProps> = ({
     onSettingsChanged?.();
   };
 
+  const deviceNameBeforeEditRef = useRef(deviceName);
+
   const handleDeviceNameChange = async (value: string) => {
     setDeviceName(value);
     await StorageService.saveMqttDeviceName(value);
     onSettingsChanged?.();
-    // If connected, warn user that reconnect is needed for the name to take effect
-    if (isConnected) {
+  };
+
+  const handleDeviceNameFocus = () => {
+    deviceNameBeforeEditRef.current = deviceName;
+  };
+
+  const handleDeviceNameBlur = () => {
+    // Only prompt reconnect if the name actually changed and MQTT is connected
+    if (isConnected && deviceName !== deviceNameBeforeEditRef.current) {
       Alert.alert(
         'Reconnect Required',
         'The Device Name change will take effect after reconnecting MQTT. Reconnect now?',
@@ -282,13 +291,13 @@ export const MqttSettingsSection: React.FC<MqttSettingsSectionProps> = ({
             text: 'Reconnect',
             onPress: async () => {
               await handleDisconnect();
-              // Small delay to let disconnect complete
               setTimeout(() => handleConnect(), 500);
             },
           },
         ]
       );
     }
+    deviceNameBeforeEditRef.current = deviceName;
   };
 
   const handleMotionAlwaysOnChange = async (value: boolean) => {
@@ -420,6 +429,8 @@ export const MqttSettingsSection: React.FC<MqttSettingsSectionProps> = ({
             label="Device Name (optional)"
             value={deviceName}
             onChangeText={handleDeviceNameChange}
+            onFocus={handleDeviceNameFocus}
+            onBlur={handleDeviceNameBlur}
             placeholder="e.g. lobby, entrance, kitchen"
             icon="rename-box"
             hint="Friendly name used in MQTT topics and HA device name. If empty, uses Android ID."

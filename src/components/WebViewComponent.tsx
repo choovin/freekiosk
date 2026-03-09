@@ -34,6 +34,7 @@ interface WebViewComponentProps {
   urlFilterPatterns?: string[]; // URL patterns to filter
   urlFilterShowFeedback?: boolean; // Show feedback when URL is blocked
   pdfViewerEnabled?: boolean; // Enable inline PDF viewing via PDF.js
+  zoomLevel?: number; // Zoom level percentage (50-200, default 100)
 }
 
 export interface WebViewComponentRef {
@@ -57,7 +58,8 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
   urlFilterMode,
   urlFilterPatterns,
   urlFilterShowFeedback = false,
-  pdfViewerEnabled = false
+  pdfViewerEnabled = false,
+  zoomLevel = 100
 }, ref) => {
   const navigation = useNavigation<NavigationProp>();
   const webViewRef = useRef<WebView>(null);
@@ -709,6 +711,7 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
           }
         }}
 
+        textZoom={zoomLevel}
         scalesPageToFit={true}
         cacheEnabled={true}
         incognito={false}

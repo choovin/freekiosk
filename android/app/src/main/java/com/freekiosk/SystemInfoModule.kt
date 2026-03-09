@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -11,6 +14,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.media.AudioManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -105,53 +109,31 @@ class SystemInfoModule(reactContext: ReactApplicationContext) : ReactContextBase
         try {
             val connectivityManager = reactApplicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Use ConnectivityManager + NetworkCapabilities for reliable WiFi connected check
+            val isConnected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val network = connectivityManager.activeNetwork
                 val capabilities = connectivityManager.getNetworkCapabilities(network)
-
-                val isConnected = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-                wifiInfo.putBoolean("isConnected", isConnected)
-
-                if (isConnected) {
-                    val wifiManager = reactApplicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                    val wifiInfoObj = wifiManager.connectionInfo
-                    var ssid = wifiInfoObj.ssid.replace("\"", "")
-                    if (ssid == "<unknown ssid>") {
-                        ssid = "WiFi"
-                    }
-                    wifiInfo.putString("ssid", ssid)
-
-                    // Signal strength (0-4 bars)
-                    val rssi = wifiInfoObj.rssi
-                    val level = WifiManager.calculateSignalLevel(rssi, 5)
-                    wifiInfo.putInt("signalLevel", level)
-                } else {
-                    wifiInfo.putString("ssid", "")
-                    wifiInfo.putInt("signalLevel", 0)
-                }
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
             } else {
                 @Suppress("DEPRECATION")
+                val networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+                networkInfo?.isConnected == true
+            }
+            wifiInfo.putBoolean("isConnected", isConnected)
+
+            if (isConnected) {
                 val wifiManager = reactApplicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                @Suppress("DEPRECATION")
                 val wifiInfoObj = wifiManager.connectionInfo
-                val isConnected = wifiInfoObj != null && wifiInfoObj.networkId != -1
-                wifiInfo.putBoolean("isConnected", isConnected)
 
-                if (isConnected) {
-                    var ssid = wifiInfoObj.ssid.replace("\"", "")
-                    if (ssid == "<unknown ssid>") {
-                        ssid = "WiFi"
-                    }
-                    wifiInfo.putString("ssid", ssid)
+                val ssid = getSsidSafe(wifiInfoObj.ssid)
+                wifiInfo.putString("ssid", ssid)
 
-                    val rssi = wifiInfoObj.rssi
-                    @Suppress("DEPRECATION")
-                    val level = WifiManager.calculateSignalLevel(rssi, 5)
-                    wifiInfo.putInt("signalLevel", level)
-                } else {
-                    wifiInfo.putString("ssid", "")
-                    wifiInfo.putInt("signalLevel", 0)
-                }
+                val rssi = wifiInfoObj.rssi
+                val level = WifiManager.calculateSignalLevel(rssi, 5)
+                wifiInfo.putInt("signalLevel", level)
+            } else {
+                wifiInfo.putString("ssid", "")
+                wifiInfo.putInt("signalLevel", 0)
             }
         } catch (e: Exception) {
             DebugLog.errorProduction("SystemInfo", "WiFi error: ${e.message}")
@@ -161,6 +143,35 @@ class SystemInfoModule(reactContext: ReactApplicationContext) : ReactContextBase
         }
 
         return wifiInfo
+    }
+
+    /**
+     * Safely extract SSID from WifiInfo.ssid.
+     * Returns the real SSID if location permission is granted and location services are ON,
+     * otherwise returns "WiFi (no location)" to make it clear why the SSID is unavailable.
+     */
+    private fun getSsidSafe(rawSsid: String?): String {
+        val ssid = rawSsid?.replace("\"", "")?.trim() ?: ""
+        if (ssid.isNotEmpty() && ssid != "<unknown ssid>" && ssid != "0x") {
+            return ssid
+        }
+        // SSID unavailable — check why
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            reactApplicationContext, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val locationManager = reactApplicationContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            locationManager?.isLocationEnabled == true
+        } else {
+            @Suppress("DEPRECATION")
+            (locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+             locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true)
+        }
+        return when {
+            !hasLocationPermission -> "WiFi (no permission)"
+            !locationEnabled -> "WiFi (location off)"
+            else -> "WiFi"
+        }
     }
 
     private fun getBluetoothInfo(): WritableMap {

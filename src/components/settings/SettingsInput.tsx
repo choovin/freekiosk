@@ -25,6 +25,7 @@ interface SettingsInputProps {
   inputStyle?: ViewStyle;
   multiline?: boolean;
   onBlur?: () => void;
+  onFocus?: () => void;
 }
 
 // Uses native secureTextEntry for password masking - no manual bullet management.
@@ -49,6 +50,7 @@ const SettingsInput: React.FC<SettingsInputProps> = ({
   inputStyle,
   multiline = false,
   onBlur,
+  onFocus,
 }) => {
   return (
     <View style={[styles.container, style]}>
@@ -76,6 +78,7 @@ const SettingsInput: React.FC<SettingsInputProps> = ({
         editable={!disabled}
         multiline={multiline}
         onBlur={onBlur}
+        onFocus={onFocus}
         cursorColor={Colors.primary}
         selectionColor={Colors.primaryLight}
         caretHidden={false}

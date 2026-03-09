@@ -24,6 +24,7 @@ const BACKUP_KEYS = [
   '@default_brightness',
   '@kiosk_display_mode',
   '@kiosk_external_app_package',
+  '@kiosk_external_app_mode',
   '@kiosk_auto_relaunch_app',
   '@kiosk_overlay_button_visible',
   '@kiosk_overlay_button_position',
@@ -99,6 +100,8 @@ const BACKUP_KEYS = [
   '@kiosk_url_filter_show_feedback',
   // PDF Viewer
   '@kiosk_pdf_viewer_enabled',
+  // WebView Zoom Level
+  '@kiosk_webview_zoom_level',
   // MQTT
   '@kiosk_mqtt_enabled',
   '@kiosk_mqtt_broker_url',
@@ -113,6 +116,8 @@ const BACKUP_KEYS = [
   '@kiosk_mqtt_motion_always_on',
   // Beta Updates
   '@kiosk_beta_updates_enabled',
+  // Managed Apps (Multi-App mode, accessibility, keep-alive)
+  '@kiosk_managed_apps',
   // Note: MQTT password is handled separately via Keychain (secure storage)
   // Legacy keys
   '@screensaver_delay',

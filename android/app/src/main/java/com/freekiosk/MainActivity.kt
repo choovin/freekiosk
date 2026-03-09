@@ -211,7 +211,7 @@ class MainActivity : ReactActivity() {
       // Mode Device Owner: Lock Task complet avec whitelist
       enableKioskRestrictions()
 
-      // Build whitelist: toujours FreeKiosk, + app externe si configurée
+      // Build whitelist: toujours FreeKiosk, + app externe si configurée, + managed apps
       val whitelist = mutableListOf(packageName)
 
       if (isExternalAppMode && !externalAppPackage.isNullOrEmpty()) {
@@ -224,14 +224,18 @@ class MainActivity : ReactActivity() {
         }
       }
 
+      // Add all managed apps to lock task whitelist
+      whitelist.addAll(getManagedAppPackages())
+      val uniqueWhitelist = whitelist.distinct()
+
       // Configurer la whitelist Lock Task
-      devicePolicyManager.setLockTaskPackages(adminComponent, whitelist.toTypedArray())
+      devicePolicyManager.setLockTaskPackages(adminComponent, uniqueWhitelist.toTypedArray())
 
       // Lancer Lock Task sur MainActivity
       // Avec la whitelist, l'utilisateur peut naviguer entre FreeKiosk et l'app externe
       // Mais ne peut PAS sortir vers d'autres apps, launcher, ou paramètres
       startLockTask()
-      DebugLog.d("MainActivity", "Lock task started (Device Owner) with whitelist: $whitelist")
+      DebugLog.d("MainActivity", "Lock task started (Device Owner) with whitelist: $uniqueWhitelist")
     } else {
       // Mode non-Device Owner: Screen Pinning manuel (demande confirmation utilisateur)
       try {
@@ -618,6 +622,32 @@ class MainActivity : ReactActivity() {
     } catch (e: Exception) {
       DebugLog.d("MainActivity", "Error reading AsyncStorage key $key: ${e.message}")
       defaultValue
+    }
+  }
+
+  /**
+   * Read all managed app package names from AsyncStorage.
+   * Used to add them to the lock task whitelist.
+   */
+  private fun getManagedAppPackages(): List<String> {
+    return try {
+      val json = getAsyncStorageValue("@kiosk_managed_apps", "[]")
+      val apps = org.json.JSONArray(json)
+      val packages = mutableListOf<String>()
+      for (i in 0 until apps.length()) {
+        val app = apps.getJSONObject(i)
+        val pkg = app.getString("packageName")
+        try {
+          packageManager.getPackageInfo(pkg, 0)
+          packages.add(pkg)
+        } catch (e: Exception) {
+          DebugLog.d("MainActivity", "Managed app not installed, skipping: $pkg")
+        }
+      }
+      packages
+    } catch (e: Exception) {
+      DebugLog.d("MainActivity", "Could not read managed apps: ${e.message}")
+      emptyList()
     }
   }
 

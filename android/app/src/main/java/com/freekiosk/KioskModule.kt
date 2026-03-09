@@ -97,7 +97,7 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                         val adminComponent = ComponentName(reactApplicationContext, DeviceAdminReceiver::class.java)
 
                         if (dpm.isDeviceOwnerApp(reactApplicationContext.packageName)) {
-                            // Build whitelist: FreeKiosk + external app if provided
+                            // Build whitelist: FreeKiosk + external app + all managed apps
                             val whitelist = mutableListOf(reactApplicationContext.packageName)
                             
                             // Use the passed parameter directly (more reliable than SharedPreferences timing)
@@ -110,6 +110,10 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                                     android.util.Log.e("KioskModule", "External app not found: $externalAppPackage")
                                 }
                             }
+                            
+                            // Add all managed apps to the lock task whitelist
+                            whitelist.addAll(getManagedAppPackages())
+                            val uniqueWhitelist = whitelist.distinct()
                             
                             // Configure Lock Task features based on settings
                             // GLOBAL_ACTIONS is included by default (Android's own default when setLockTaskFeatures is never called)
@@ -136,9 +140,9 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                                 android.util.Log.d("KioskModule", "Lock task features set: blockPowerButton=${!allowPowerButton}, notifications=$allowNotifications, systemInfo=$allowSystemInfo (flags=$lockTaskFeatures)")
                             }
                             
-                            dpm.setLockTaskPackages(adminComponent, whitelist.toTypedArray())
+                            dpm.setLockTaskPackages(adminComponent, uniqueWhitelist.toTypedArray())
                             activity.startLockTask()
-                            android.util.Log.d("KioskModule", "Full lock task started (Device Owner) with whitelist: $whitelist")
+                            android.util.Log.d("KioskModule", "Full lock task started (Device Owner) with whitelist: $uniqueWhitelist")
                             
                             // Safety net: force unmute audio streams after entering lock task
                             // Samsung/OneUI devices may mute audio in LOCK_TASK_MODE_LOCKED
@@ -875,6 +879,118 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         } catch (e: Exception) {
             android.util.Log.e("KioskModule", "Failed to cancel alarms: ${e.message}")
             promise.reject("ERROR", "Failed to cancel alarms: ${e.message}")
+        }
+    }
+
+    /**
+     * Open Android system settings.
+     * Handles Lock Task Mode: temporarily stops lock task to allow navigation
+     * to Settings. When the user returns to FreeKiosk, MainActivity.onResume()
+     * automatically re-engages Lock Task Mode.
+     *
+     * @param settingsPage Optional specific settings page:
+     *   "wifi", "sound", "display", "bluetooth", "location", "apps", "date"
+     *   or null/empty to open the main settings screen.
+     */
+    @ReactMethod
+    fun openAndroidSettings(settingsPage: String?, promise: Promise) {
+        try {
+            val action = when (settingsPage?.lowercase()) {
+                "wifi", "wireless" -> android.provider.Settings.ACTION_WIFI_SETTINGS
+                "sound", "volume", "audio" -> android.provider.Settings.ACTION_SOUND_SETTINGS
+                "display", "screen", "brightness" -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
+                "bluetooth" -> android.provider.Settings.ACTION_BLUETOOTH_SETTINGS
+                "location" -> android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                "apps", "applications" -> android.provider.Settings.ACTION_APPLICATION_SETTINGS
+                "date", "time" -> android.provider.Settings.ACTION_DATE_SETTINGS
+                "security" -> android.provider.Settings.ACTION_SECURITY_SETTINGS
+                "accessibility" -> android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
+                else -> android.provider.Settings.ACTION_SETTINGS
+            }
+
+            val activity = reactApplicationContext.currentActivity
+
+            // Check if we're in Lock Task Mode — must stop it before launching external activity
+            val activityManager = reactApplicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val wasInLockTask = activityManager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+
+            if (wasInLockTask && activity != null) {
+                android.util.Log.d("KioskModule", "Temporarily stopping Lock Task to open Android settings")
+                activity.runOnUiThread {
+                    try {
+                        activity.stopLockTask()
+                        // Small delay to let the system process the lock task stop
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            try {
+                                val intent = Intent(action).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                reactApplicationContext.startActivity(intent)
+                                android.util.Log.d("KioskModule", "Opened Android settings (lock task paused): ${settingsPage ?: "main"}")
+                            } catch (e: Exception) {
+                                android.util.Log.e("KioskModule", "Failed to launch settings after unlock: ${e.message}")
+                                // Re-lock if we failed to open settings
+                                try { activity.startLockTask() } catch (_: Exception) {}
+                            }
+                        }, 300)
+                        promise.resolve(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("KioskModule", "Failed to stop lock task: ${e.message}")
+                        promise.reject("ERROR", "Failed to temporarily exit kiosk mode: ${e.message}")
+                    }
+                }
+            } else {
+                // Not in Lock Task Mode — just launch directly
+                val intent = Intent(action).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                reactApplicationContext.startActivity(intent)
+                android.util.Log.d("KioskModule", "Opened Android settings: ${settingsPage ?: "main"}")
+                promise.resolve(true)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("KioskModule", "Failed to open Android settings: ${e.message}")
+            promise.reject("ERROR", "Failed to open Android settings: ${e.message}")
+        }
+    }
+
+    /**
+     * Read all managed app package names from AsyncStorage.
+     * Used to add them to the lock task whitelist.
+     */
+    private fun getManagedAppPackages(): List<String> {
+        return try {
+            val dbPath = reactApplicationContext.getDatabasePath("RKStorage").absolutePath
+            val db = android.database.sqlite.SQLiteDatabase.openDatabase(dbPath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
+            val cursor = db.rawQuery(
+                "SELECT value FROM catalystLocalStorage WHERE key = ?",
+                arrayOf("@kiosk_managed_apps")
+            )
+            val result = if (cursor.moveToFirst()) {
+                val json = cursor.getString(0) ?: "[]"
+                val apps = org.json.JSONArray(json)
+                val packages = mutableListOf<String>()
+                for (i in 0 until apps.length()) {
+                    val app = apps.getJSONObject(i)
+                    val pkg = app.getString("packageName")
+                    // Verify app is still installed
+                    try {
+                        reactApplicationContext.packageManager.getPackageInfo(pkg, 0)
+                        packages.add(pkg)
+                    } catch (e: Exception) {
+                        android.util.Log.w("KioskModule", "Managed app not installed, skipping: $pkg")
+                    }
+                }
+                packages
+            } else {
+                emptyList()
+            }
+            cursor.close()
+            db.close()
+            result
+        } catch (e: Exception) {
+            android.util.Log.w("KioskModule", "Could not read managed apps: ${e.message}")
+            emptyList()
         }
     }
 }

@@ -10,6 +10,10 @@ interface IAppLauncherModule {
   isAppInstalled(packageName: string): Promise<boolean>;
   getInstalledApps(): Promise<AppInfo[]>;
   getPackageLabel(packageName: string): Promise<string>;
+  getAppIcon(packageName: string, size: number): Promise<string>;
+  launchBootApps(): Promise<number>;
+  startBackgroundMonitor(): Promise<boolean>;
+  stopBackgroundMonitor(): Promise<boolean>;
 }
 
 const { AppLauncherModule } = NativeModules;
