@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+***
+
+## [1.2.17] - 2026-03-11
+
 ### Added
 - 🔒 **Boot Lock Activity** (#98): New lightweight native Android activity (`BootLockActivity`) that enters lock-task mode immediately after boot — before React Native loads. On low-spec devices (e.g. Nokia C210) where RN can take 1-2 minutes to initialize, this eliminates the window where users could interact with the OS freely. The activity shows a minimal loading screen (app icon + spinner) and automatically hands off to MainActivity once React Native is ready. Only activates for Device Owner installs with kiosk mode enabled; non-DO installs use the existing delayed-launch path
 - 🛡️ **Kiosk Watchdog Service** (#96): New `KioskWatchdogService` foreground service using `START_STICKY` flag to survive OOM kills. On low-RAM devices (e.g. 2GB AndroidTV), if the browser consumes too much memory and the kernel kills FreeKiosk, the watchdog automatically relaunches it within seconds. Includes relaunch cooldown (15s) to prevent relaunch storms, self-disables when kiosk mode is turned off, and uses a silent minimal-priority notification
@@ -37,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ♿ **Accessibility Whitelist for Other Apps** (#66): Device Owners can now allow other apps' accessibility services via a per-app "Allow Accessibility" toggle in Managed Apps settings. Uses `DevicePolicyManager.setPermittedAccessibilityServices()` to whitelist selected packages alongside FreeKiosk's own service. Applied at boot, on save, and when enabling via Device Owner
 - ⚙️ **Android Settings Button** (#89): New "Android System Settings" section in the Advanced tab with a main button to open the native Android settings, plus quick-access shortcuts for WiFi, Sound, Display, Bluetooth, Date & Time, and Apps. Fully compatible with Lock Task Mode (kiosk): automatically pauses the lock, opens the settings, and re-engages kiosk mode when the user returns to FreeKiosk. An info banner warns when kiosk mode is active. Useful for devices with no physical navigation buttons where ADB commands are restricted by Admin mode
 - 🔍 **WebView Zoom Level** (Display settings): New slider to control how web pages are rendered in WebView mode. Range: 50%–200%, default 100% (matches Chrome's default rendering). Quick presets at 75%, 100%, 125%, 150%. An info hint appears when zoom is not at default. Persisted to storage and included in backup/restore. Only available in WebView mode
+
+### Changed
+- 🏪 **Play Store compliance: conditional self-update** (#playstore): In-app self-update via GitHub (check for updates, download APK, install) is now completely disabled when building for the Play Store. A single Gradle flag (`-Pplaystore`) controls everything at compile time — no separate codebase needed. When active: `REQUEST_INSTALL_PACKAGES` permission is removed from the merged manifest, `UpdateInstallReceiver` is disabled, the entire "Updates" UI section is hidden from Settings → Advanced, and all native update methods become no-ops. R8 strips the dead update code from the final bytecode. Normal sideload/F-Droid builds (`./gradlew assembleRelease`) remain fully functional with self-update enabled. Play Store builds: `./gradlew bundleRelease -Pplaystore`
 
 ### Fixed
 - � **MQTT doesn't connect when password is set** (#97): Fixed a crash in the password masking logic used for debug logging — `String.repeat(password.length - 6)` produced a negative count for passwords shorter than 7 characters, throwing `IllegalArgumentException` before the MQTT client was even built. This silently aborted `connect()`, resulting in zero network traffic and an immediate return to "Disconnected". Also fixed authentication being skipped entirely when a password was configured without a username (the auth block was gated on `!username.isNullOrBlank()` only)

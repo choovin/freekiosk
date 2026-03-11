@@ -25,7 +25,7 @@ import CertificateModuleTyped, { CertificateInfo } from '../../utils/Certificate
 import AppLauncherModule, { AppInfo } from '../../utils/AppLauncherModule';
 import OverlayPermissionModule from '../../utils/OverlayPermissionModule';
 import LauncherModule from '../../utils/LauncherModule';
-import UpdateModule from '../../utils/UpdateModule';
+import UpdateModule, { ENABLE_SELF_UPDATE } from '../../utils/UpdateModule';
 import AutoBrightnessModule from '../../utils/AutoBrightnessModule';
 import { httpServer } from '../../utils/HttpServerModule';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -317,8 +317,10 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
     try {
       const versionInfo = await UpdateModule.getCurrentVersion();
       setCurrentVersion(versionInfo.versionName);
-      const savedBetaUpdates = await StorageService.getBetaUpdatesEnabled();
-      setBetaUpdatesEnabled(savedBetaUpdates);
+      if (ENABLE_SELF_UPDATE) {
+        const savedBetaUpdates = await StorageService.getBetaUpdatesEnabled();
+        setBetaUpdatesEnabled(savedBetaUpdates);
+      }
     } catch (error) {
       console.error('Failed to load current version:', error);
     }
@@ -852,6 +854,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   };
 
   const handleCheckForUpdates = async () => {
+    if (!ENABLE_SELF_UPDATE) return;
     setCheckingUpdate(true);
     setUpdateAvailable(false);
     setUpdateInfo(null);
@@ -891,6 +894,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   };
 
   const handleDownloadUpdate = async (update?: any) => {
+    if (!ENABLE_SELF_UPDATE) return;
     const updateData = update || updateInfo;
     
     if (!updateData || !updateData.downloadUrl) {
@@ -1744,6 +1748,7 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
           <AdvancedTab
             displayMode={displayMode}
             isDeviceOwner={isDeviceOwner}
+            enableSelfUpdate={ENABLE_SELF_UPDATE}
             currentVersion={currentVersion}
             checkingUpdate={checkingUpdate}
             downloading={downloading}

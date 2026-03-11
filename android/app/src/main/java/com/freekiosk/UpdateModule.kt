@@ -24,6 +24,16 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         return "UpdateModule"
     }
 
+    /**
+     * Expose ENABLE_SELF_UPDATE to JavaScript as a constant.
+     * When building with -Pplaystore, this is false and all update methods become no-ops.
+     */
+    override fun getConstants(): MutableMap<String, Any> {
+        return mutableMapOf(
+            "ENABLE_SELF_UPDATE" to BuildConfig.ENABLE_SELF_UPDATE
+        )
+    }
+
     private var downloadId: Long = -1
     private var updatePromise: Promise? = null
 
@@ -57,6 +67,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
      */
     @ReactMethod
     fun checkForUpdates(promise: Promise) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) {
+            promise.reject("DISABLED", "Self-update is disabled in Play Store builds")
+            return
+        }
         checkForUpdatesWithChannel(false, promise)
     }
 
@@ -67,6 +81,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
      */
     @ReactMethod
     fun checkForUpdatesWithChannel(includeBeta: Boolean, promise: Promise) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) {
+            promise.reject("DISABLED", "Self-update is disabled in Play Store builds")
+            return
+        }
         Thread {
             try {
                 val apiUrl = if (includeBeta) {
@@ -161,6 +179,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
      */
     @ReactMethod
     fun checkInstallPermission(promise: Promise) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) {
+            promise.reject("DISABLED", "Self-update is disabled in Play Store builds")
+            return
+        }
         try {
             val canInstall = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 reactApplicationContext.packageManager.canRequestPackageInstalls()
@@ -179,6 +201,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
      */
     @ReactMethod
     fun openInstallPermissionSettings(promise: Promise) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) {
+            promise.reject("DISABLED", "Self-update is disabled in Play Store builds")
+            return
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val intent = Intent(
@@ -203,6 +229,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
 
     @ReactMethod
     fun downloadAndInstall(downloadUrl: String, version: String, promise: Promise) {
+        if (!BuildConfig.ENABLE_SELF_UPDATE) {
+            promise.reject("DISABLED", "Self-update is disabled in Play Store builds")
+            return
+        }
         try {
             android.util.Log.d("UpdateModule", "Starting download from: $downloadUrl")
             

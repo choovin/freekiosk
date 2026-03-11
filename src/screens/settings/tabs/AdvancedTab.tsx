@@ -23,6 +23,9 @@ interface AdvancedTabProps {
   displayMode: 'webview' | 'external_app' | 'media_player';
   isDeviceOwner: boolean;
   
+  // Play Store compliance: when false, the entire Updates section is hidden
+  enableSelfUpdate: boolean;
+  
   // Version & updates
   currentVersion: string;
   checkingUpdate: boolean;
@@ -51,6 +54,7 @@ interface AdvancedTabProps {
 const AdvancedTab: React.FC<AdvancedTabProps> = ({
   displayMode,
   isDeviceOwner,
+  enableSelfUpdate,
   currentVersion,
   checkingUpdate,
   downloading,
@@ -125,7 +129,8 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
   };
   return (
     <View>
-      {/* App Updates - Available for all users */}
+      {/* App Updates - Hidden in Play Store builds (compliance: no in-app updates) */}
+      {enableSelfUpdate && (
       <SettingsSection title="Updates" icon="update">
         <View style={styles.versionRow}>
           <Text style={styles.versionLabel}>Current Version</Text>
@@ -180,6 +185,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
           {isDeviceOwner ? 'Device Owner mode: Manual updates via GitHub.' : 'Download and install updates from GitHub.'}
         </Text>
       </SettingsSection>
+      )}
       
       {/* SSL Certificates - WebView only */}
       {displayMode === 'webview' && (

@@ -67,6 +67,14 @@ react {
 def enableProguardInReleaseBuilds = true
 
 /**
+ * Play Store compliance: disable in-app self-update when building with -Pplaystore.
+ * Usage:
+ *   APK  (self-update ON):  ./gradlew assembleRelease
+ *   AAB  (self-update OFF): ./gradlew bundleRelease -Pplaystore
+ */
+def enableSelfUpdate = !project.hasProperty('playstore')
+
+/**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
  * For example, to use the international variant, you can use:
@@ -90,10 +98,28 @@ android {
         applicationId "com.freekiosk"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 31
-        versionName "1.2.16"
+        versionCode 32
+        versionName "1.2.17"
 
-        manifestPlaceholders = [usesCleartextTraffic: "true"]
+        // Expose self-update flag to both Kotlin (BuildConfig) and JS (via UpdateModule constants)
+        buildConfigField "boolean", "ENABLE_SELF_UPDATE", "${enableSelfUpdate}"
+
+        // Play Store compliance: when -Pplaystore is set, replace REQUEST_INSTALL_PACKAGES
+        // with INTERNET (already declared → deduplicated by manifest merger → effectively removed)
+        // and disable UpdateInstallReceiver.
+        if (enableSelfUpdate) {
+            manifestPlaceholders = [
+                usesCleartextTraffic: "true",
+                installPackagesPermission: "android.permission.REQUEST_INSTALL_PACKAGES",
+                updateReceiverEnabled: "true"
+            ]
+        } else {
+            manifestPlaceholders = [
+                usesCleartextTraffic: "true",
+                installPackagesPermission: "android.permission.INTERNET",
+                updateReceiverEnabled: "false"
+            ]
+        }
     }
     
     signingConfigs {

@@ -11,7 +11,7 @@
   </p>
   
   <p>
-    <img src="https://img.shields.io/badge/Version-1.2.16-blue.svg" alt="Version 1.2.9">
+    <img src="https://img.shields.io/badge/Version-1.2.17-blue.svg" alt="Version 1.2.17">
     <a href="https://github.com/rushb-fr/freekiosk/releases"><img src="https://img.shields.io/github/downloads/rushb-fr/freekiosk/total.svg" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
     <img src="https://img.shields.io/badge/Android-8.0%2B-green.svg" alt="Android 8.0+">
@@ -285,7 +285,21 @@ Done! Your tablet is now in kiosk mode.
 
 ## 🗺️ Roadmap
 
-### ✅ v1.2.16 (Mar 2026) - Keep Screen On, MQTT Fixes & Camera2 Fallback 🆕
+### ✅ v1.2.17 (Mar 2026) - Media Player, Dashboard, Multi-App & Boot Lock 🆕
+- 🎬 **Media Player Mode**: New display mode — play videos & images in full-screen kiosk with playlist, crossfade, shuffle, local file picker & remote URLs
+- 📊 **Dashboard Mode**: Configurable grid of URL tiles with navigation bar
+- 📱 **Multi-App Mode**: Manage multiple apps on a home screen grid, all whitelisted in Lock Task Mode
+- 🔒 **Boot Lock Activity**: Native lock-task activity starts before React Native on low-spec devices
+- 🛡️ **Kiosk Watchdog Service**: Auto-relaunches FreeKiosk after OOM kills on low-RAM devices
+- 🚀 **Launch App on Boot** & 💓 **Keep Alive Monitor**: Managed apps auto-start and stay running
+- ♿ **Accessibility Whitelist**: Allow other apps' accessibility services via Device Owner
+- ⚙️ **Android Settings Button**: Open system settings from within Lock Task Mode
+- 🔍 **WebView Zoom Level**: 50%–200% zoom control for web content
+- 🏪 **Play Store compliance**: Conditional self-update disabled via Gradle flag
+- 🔒 **PIN bypass fix**: Back gesture no longer bypasses PIN on Android 16+
+- 📡 **MQTT background persistence**: 4-layer protection keeps MQTT alive in background
+
+### ✅ v1.2.16 (Mar 2026) - Keep Screen On, MQTT Fixes & Camera2 Fallback
 - 💤 **"Keep Screen On" toggle**: Let Android manage screen timeout normally when disabled
 - 📡 **MQTT background reconnect**: Auto-reconnects after Doze/background, device name pre-filled, executeJS reliability fixes
 - 📷 **Camera2 fallback**: Motion detection on MediaTek/front-only cameras where CameraX fails

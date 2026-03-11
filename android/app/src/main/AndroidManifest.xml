@@ -22,7 +22,9 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Self-update permission: conditionally included via manifestPlaceholder.
+         Play Store builds (-Pplaystore) replace this with INTERNET (deduplicated = removed). -->
+    <uses-permission android:name="${installPackagesPermission}" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
@@ -160,9 +162,10 @@
           android:value="kiosk_watchdog"/>
       </service>
 
-      <!-- Receiver for silent installation results -->
+      <!-- Receiver for silent installation results (disabled in Play Store builds) -->
       <receiver
         android:name=".UpdateInstallReceiver"
+        android:enabled="${updateReceiverEnabled}"
         android:exported="true" />
 
       <!-- Receiver for screen sleep scheduler alarms -->
