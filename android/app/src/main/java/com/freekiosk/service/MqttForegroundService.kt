@@ -15,6 +15,7 @@ import com.freekiosk.mqtt5.EmqxMqttClient
 import com.freekiosk.mqtt5.Mqtt5Config
 import com.freekiosk.mqtt5.handlers.CommandHandler
 import kotlinx.coroutines.*
+import kotlinx.coroutines.future.await
 
 /**
  * MQTT 前台服务

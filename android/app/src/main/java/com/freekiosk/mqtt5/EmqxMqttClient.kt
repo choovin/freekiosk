@@ -6,14 +6,13 @@ import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
-import com.hivemq.client.mqtt.mqtt5.Mqtt5ClientConfig
 import com.hivemq.client.mqtt.mqtt5.message.auth.Mqtt5SimpleAuth
 import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5Connect
 import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5ConnectRestrictions
-import com.hivemq.client.mqtt.mqtt5.message.disconnect.Mqtt5Disconnect
 import com.hivemq.client.mqtt.mqtt5.message.disconnect.Mqtt5DisconnectReasonCode
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5PublishResult
+import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
 import java.nio.ByteBuffer
@@ -113,7 +112,7 @@ class EmqxMqttClient(
             Mqtt5ConnectRestrictions.builder()
                 .receiveMaximum(100)                    // 最大接收消息数
                 .sendMaximum(100)                       // 最大发送消息数
-                .maximumPacketSize(config.maxPacketSize.toLong())
+                .maximumPacketSize(config.maxPacketSize) // 最大数据包大小（字节）
                 .topicAliasMaximum(10)                  // 最大 Topic 别名数
                 .build()
         )
@@ -166,10 +165,12 @@ class EmqxMqttClient(
     /**
      * 连接丢失回调
      *
-     * @param clientConfig 客户端配置，包含断开原因
+     * @param context 断开连接上下文，包含断开原因
      */
-    private fun onConnectionLost(clientConfig: Mqtt5ClientConfig) {
-        Log.w(TAG, "MQTT 连接丢失: ${clientConfig.reasonString}")
+    private fun onConnectionLost(context: MqttClientDisconnectedContext) {
+        val cause = context.cause
+        val errorMessage = cause?.message ?: cause?.javaClass?.simpleName ?: "未知原因"
+        Log.w(TAG, "MQTT 连接丢失: $errorMessage")
         isConnected = false
         // LWT 会自动发布离线状态，这里不需要手动发布
         onDisconnected?.invoke()
@@ -416,7 +417,7 @@ class EmqxMqttClient(
         Thread.sleep(100)
 
         return client?.disconnectWith()
-            ?.reason(Mqtt5DisconnectReasonCode.NORMAL_DISCONNECTION)
+            ?.reasonCode(Mqtt5DisconnectReasonCode.NORMAL_DISCONNECTION)
             ?.send()
             ?.thenAccept {
                 Log.i(TAG, "已断开与 MQTT Broker 的连接")
