@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import com.freekiosk.R
 import com.freekiosk.mqtt5.EmqxMqttClient
 import com.freekiosk.mqtt5.Mqtt5Config
+import com.freekiosk.mqtt5.handlers.CommandHandler
 import kotlinx.coroutines.*
 
 /**
@@ -25,6 +26,7 @@ import kotlinx.coroutines.*
  * - 维持 MQTT 长连接
  * - 网络状态监控和自动重连
  * - 显示连接状态通知
+ * - 命令处理和响应
  *
  * 使用方法:
  * ```kotlin
@@ -41,6 +43,10 @@ class MqttForegroundService : Service() {
 
         // Intent Extra 键
         const val EXTRA_CONFIG = "mqtt_config"
+
+        // 命令执行器实例（由外部设置）
+        @Volatile
+        var commandExecutor: CommandHandler.CommandExecutor? = null
 
         /**
          * 启动服务
@@ -74,6 +80,9 @@ class MqttForegroundService : Service() {
 
     // 网络监控器
     private var networkMonitor: NetworkMonitor? = null
+
+    // 命令处理器
+    private var commandHandler: CommandHandler? = null
 
     // 协程作用域
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -187,6 +196,14 @@ class MqttForegroundService : Service() {
             }
         }
 
+        // 创建命令处理器
+        commandExecutor?.let { executor ->
+            commandHandler = CommandHandler(mqttClient!!, executor)
+            Log.i(TAG, "命令处理器已初始化")
+        } ?: run {
+            Log.w(TAG, "未设置命令执行器，命令将无法被处理")
+        }
+
         // 设置网络监控
         networkMonitor = NetworkMonitor(applicationContext).apply {
             registerCallback(
@@ -217,12 +234,13 @@ class MqttForegroundService : Service() {
                 mqttClient?.connect()?.await()
                 Log.i(TAG, "MQTT 连接已发起")
 
-                // 订阅命令和配置 Topic
+                // 订阅命令 Topic
                 mqttClient?.subscribeToCommands { publish ->
                     Log.d(TAG, "收到命令: ${publish.topic}")
-                    // TODO: 处理命令消息
+                    commandHandler?.handle(publish)
                 }?.await()
 
+                // 订阅配置 Topic
                 mqttClient?.subscribeToConfig { publish ->
                     Log.d(TAG, "收到配置更新: ${publish.topic}")
                     // TODO: 处理配置消息

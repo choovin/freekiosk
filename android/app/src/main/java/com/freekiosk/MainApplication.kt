@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.freekiosk.api.HttpServerPackage
 import com.freekiosk.mqtt.MqttPackage
+import com.freekiosk.mqtt5.Mqtt5Package
 
 class MainApplication : Application(), ReactApplication {
 
@@ -28,6 +29,7 @@ class MainApplication : Application(), ReactApplication {
           add(UpdatePackage())
           add(HttpServerPackage())
           add(MqttPackage())
+          add(Mqtt5Package())  // MQTT 5.0 企业级通信模块
           add(BlockingOverlayPackage())
           add(AutoBrightnessPackage())
           add(PrintPackage())
