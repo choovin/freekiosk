@@ -156,6 +156,10 @@ class EmqxMqttClient(
         Log.i(TAG, "MQTT 连接已建立")
         isConnected = true
         reconnectAttempts = 0
+
+        // 发布在线状态（保留消息）
+        publishOnlineStatus()
+
         onConnected?.invoke()
     }
 
@@ -167,7 +171,54 @@ class EmqxMqttClient(
     private fun onConnectionLost(clientConfig: Mqtt5ClientConfig) {
         Log.w(TAG, "MQTT 连接丢失: ${clientConfig.reasonString}")
         isConnected = false
+        // LWT 会自动发布离线状态，这里不需要手动发布
         onDisconnected?.invoke()
+    }
+
+    /**
+     * 发布在线状态
+     *
+     * 连接成功后立即发布在线状态，覆盖之前的离线状态。
+     */
+    private fun publishOnlineStatus() {
+        val onlinePayload = """{"status":"online","deviceId":"${config.deviceId}","tenantId":"${config.tenantId}","connectedAt":${System.currentTimeMillis()}}"""
+
+        client?.publishWith()
+            ?.topic(config.statusTopic())
+            ?.payload(onlinePayload.toByteArray())
+            ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.retain(true)
+            ?.send()
+            ?.whenComplete { _, error ->
+                if (error != null) {
+                    Log.e(TAG, "发布在线状态失败", error)
+                } else {
+                    Log.i(TAG, "已发布在线状态")
+                }
+            }
+    }
+
+    /**
+     * 发布离线状态（正常断开时）
+     *
+     * 在正常断开连接时主动发布离线状态。
+     */
+    private fun publishOfflineStatus() {
+        val offlinePayload = """{"status":"offline","deviceId":"${config.deviceId}","tenantId":"${config.tenantId}","disconnectedAt":${System.currentTimeMillis()},"reason":"graceful"}"""
+
+        client?.publishWith()
+            ?.topic(config.statusTopic())
+            ?.payload(offlinePayload.toByteArray())
+            ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.retain(true)
+            ?.send()
+            ?.whenComplete { _, error ->
+                if (error != null) {
+                    Log.e(TAG, "发布离线状态失败", error)
+                } else {
+                    Log.i(TAG, "已发布离线状态")
+                }
+            }
     }
 
     /**
@@ -351,11 +402,19 @@ class EmqxMqttClient(
     /**
      * 断开 MQTT 连接
      *
-     * 发送正常断开消息给 Broker。
+     * 先发布离线状态（保留消息），然后发送正常断开消息给 Broker。
+     * 这确保了设备状态正确更新，覆盖 LWT 的离线状态。
      *
      * @return 断开操作的 CompletableFuture
      */
     fun disconnect(): CompletableFuture<Void> {
+        // 先发布离线状态（正常断开）
+        // 这会覆盖 LWT 发布的离线状态，提供更准确的断开原因
+        publishOfflineStatus()
+
+        // 短暂延迟确保消息发送完成
+        Thread.sleep(100)
+
         return client?.disconnectWith()
             ?.reason(Mqtt5DisconnectReasonCode.NORMAL_DISCONNECTION)
             ?.send()
