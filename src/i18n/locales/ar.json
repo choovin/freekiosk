@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "عام",
+    "display": "العرض",
+    "security": "الأمان",
+    "advanced": "متقدم",
+    "dashboard": "لوحة القيادة"
+  },
+  "general": {
+    "title": "الإعدادات العامة",
+    "displayMode": "وضع العرض",
+    "webView": "WebView",
+    "externalApp": "تطبيق خارجي",
+    "mediaPlayer": "مشغل الوسائط",
+    "url": "URL",
+    "selectApp": "اختر التطبيق",
+    "pickApp": "اختر التطبيق",
+    "managedApps": "التطبيقات المدارة",
+    "addApp": "أضف التطبيق",
+    "schedule": "الجدول",
+    "addEvent": "أضف حدث"
+  },
+  "display": {
+    "title": "إعدادات العرض",
+    "brightness": "السطوع",
+    "autoBrightness": "سطوع تلقائي",
+    "screensaver": "حافظ الشاشة",
+    "motionDetection": "كشف الحركة"
+  },
+  "security": {
+    "title": "إعدادات الأمان",
+    "pinCode": "رمز PIN",
+    "setPin": "تعيين PIN",
+    "pinMode": "وضع PIN",
+    "numeric": "رقمي",
+    "alphanumeric": "أبجدي رقمي",
+    "kioskMode": "وضع الكشك",
+    "apiKey": "مفتاح API"
+  },
+  "advanced": {
+    "title": "إعدادات متقدمة",
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة",
+    "deviceInfo": "معلومات الجهاز",
+    "version": "الإصدار",
+    "backup": "نسخ احتياطي",
+    "restore": "استعادة",
+    "reboot": "إعادة تشغيل"
+  },
+  "dashboard": {
+    "title": "إعدادات لوحة القيادة",
+    "tiles": "البلاط",
+    "addTile": "أضف بلاطة",
+    "editTile": "تعديل البلاطة"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "add": "إضافة",
+    "confirm": "تأكيد",
+    "ok": "موافق",
+    "enabled": "مفعّل",
+    "disabled": "معطّل",
+    "loading": "جاري التحميل...",
+    "success": "نجاح",
+    "failed": "فشل",
+    "error": "خطأ"
+  },
+  "notifications": {
+    "settingsSaved": "تم حفظ الإعدادات",
+    "settingsLoaded": "تم تحميل الإعدادات",
+    "pinSet": "تم تعيين PIN",
+    "pinRemoved": "تم إزالة PIN"
+  }
+}

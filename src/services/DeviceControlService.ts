@@ -4,9 +4,8 @@
  */
 
 import { NativeModules, DeviceEventEmitter } from 'react-native';
-import RNBrightness from 'react-native-brightness-newarch';
 
-const { KioskModule } = NativeModules;
+const { KioskModule, AutoBrightnessModule } = NativeModules;
 
 export interface BatteryStatus {
   level: number;
@@ -213,13 +212,20 @@ class DeviceControlServiceClass {
       // Clamp value between 0 and 100
       const clamped = Math.max(0, Math.min(100, value));
       const normalized = clamped / 100;
-      
-      await RNBrightness.setBrightnessLevel(normalized);
+
+      // Use AutoBrightnessModule's setBrightness method
+      if (AutoBrightnessModule?.setBrightness) {
+        await AutoBrightnessModule.setBrightness(normalized);
+      } else if (KioskModule?.setBrightness) {
+        // Fallback to KioskModule if available
+        await KioskModule.setBrightness(normalized);
+      }
+
       this.currentBrightness = normalized;
-      
+
       // Emit event for UI updates
       DeviceEventEmitter.emit('brightnessChanged', normalized);
-      
+
       return true;
     } catch (error) {
       console.error('DeviceControlService: setBrightness error', error);
@@ -237,9 +243,11 @@ class DeviceControlServiceClass {
         if (this.screensaverCallback) {
           this.screensaverCallback(false);
         }
-        await RNBrightness.setBrightnessLevel(this.currentBrightness);
+        if (AutoBrightnessModule?.setBrightness) {
+          await AutoBrightnessModule.setBrightness(this.currentBrightness);
+        }
       }
-      
+
       return true;
     } catch (error) {
       console.error('DeviceControlService: screenOn error', error);

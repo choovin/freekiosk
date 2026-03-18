@@ -58,14 +58,15 @@ interface SettingsScreenProps {
 
 // Import Icon types
 import Icon, { IconName, IconMap } from '../../components/Icon';
+import { useTranslation } from 'react-i18next';
 
 // Tab configuration
-const TABS: { id: string; label: string; icon: IconName }[] = [
-  { id: 'general', label: 'General', icon: 'home' },
-  { id: 'dashboard', label: 'Dashboard', icon: 'view-dashboard' },
-  { id: 'display', label: 'Display', icon: 'monitor' },
-  { id: 'security', label: 'Security', icon: 'shield-lock' },
-  { id: 'advanced', label: 'Advanced', icon: 'cog' },
+const TABS = (t: any) => [
+  { id: 'general', label: t('tabs.general'), icon: 'home' },
+  { id: 'dashboard', label: t('tabs.dashboard'), icon: 'view-dashboard' },
+  { id: 'display', label: t('tabs.display'), icon: 'monitor' },
+  { id: 'security', label: t('tabs.security'), icon: 'shield-lock' },
+  { id: 'advanced', label: t('tabs.advanced'), icon: 'cog' },
 ];
 
 const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {

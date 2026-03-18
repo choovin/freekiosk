@@ -1,0 +1,22 @@
+buildscript {
+    ext {
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.0.21"
+    }
+}
+
+allprojects {
+    afterEvaluate { project ->
+        if (project.plugins.hasPlugin('com.android.application') || project.plugins.hasPlugin('com.android.library')) {
+            project.android {
+                packagingOptions {
+                    pickFirst 'lib/**/*.so'
+                }
+            }
+        }
+    }
+}

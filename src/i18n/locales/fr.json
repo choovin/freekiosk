@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "Général",
+    "display": "Affichage",
+    "security": "Sécurité",
+    "advanced": "Avancé",
+    "dashboard": "Tableau de bord"
+  },
+  "general": {
+    "title": "Paramètres Généraux",
+    "displayMode": "Mode d'Affichage",
+    "webView": "WebView",
+    "externalApp": "Application Externe",
+    "mediaPlayer": "Lecteur Multimédia",
+    "url": "URL",
+    "selectApp": "Sélectionner App",
+    "pickApp": "Choisir App",
+    "managedApps": "Apps Gérées",
+    "addApp": "Ajouter App",
+    "schedule": "Planning",
+    "addEvent": "Ajouter Événement"
+  },
+  "display": {
+    "title": "Paramètres d'Affichage",
+    "brightness": "Luminosité",
+    "autoBrightness": "Luminosité Auto",
+    "screensaver": "Économiseur d'écran",
+    "motionDetection": "Détection de Mouvement"
+  },
+  "security": {
+    "title": "Paramètres de Sécurité",
+    "pinCode": "Code PIN",
+    "setPin": "Définir PIN",
+    "pinMode": "Mode PIN",
+    "numeric": "Numérique",
+    "alphanumeric": "Alphanumérique",
+    "kioskMode": "Mode Kiosque",
+    "apiKey": "Clé API"
+  },
+  "advanced": {
+    "title": "Paramètres Avancés",
+    "language": "Langue",
+    "selectLanguage": "Sélectionner Langue",
+    "deviceInfo": "Infos Appareil",
+    "version": "Version",
+    "backup": "Sauvegarde",
+    "restore": "Restaurer",
+    "reboot": "Redémarrer"
+  },
+  "dashboard": {
+    "title": "Paramètres du Tableau de Bord",
+    "tiles": "Tuiles",
+    "addTile": "Ajouter Tuile",
+    "editTile": "Modifier Tuile"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "confirm": "Confirmer",
+    "ok": "OK",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "loading": "Chargement...",
+    "success": "Succès",
+    "failed": "Échec",
+    "error": "Erreur"
+  },
+  "notifications": {
+    "settingsSaved": "Paramètres enregistrés",
+    "settingsLoaded": "Paramètres chargés",
+    "pinSet": "PIN défini",
+    "pinRemoved": "PIN supprimé"
+  }
+}

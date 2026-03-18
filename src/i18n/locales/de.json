@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "Allgemein",
+    "display": "Anzeige",
+    "security": "Sicherheit",
+    "advanced": "Erweitert",
+    "dashboard": "Dashboard"
+  },
+  "general": {
+    "title": "Allgemeine Einstellungen",
+    "displayMode": "Anzeigemodus",
+    "webView": "WebView",
+    "externalApp": "Externe App",
+    "mediaPlayer": "Medienplayer",
+    "url": "URL",
+    "selectApp": "App Auswählen",
+    "pickApp": "App Wählen",
+    "managedApps": "Verwaltete Apps",
+    "addApp": "App Hinzufügen",
+    "schedule": "Zeitplan",
+    "addEvent": "Ereignis Hinzufügen"
+  },
+  "display": {
+    "title": "Anzeigeeinstellungen",
+    "brightness": "Helligkeit",
+    "autoBrightness": "Automatische Helligkeit",
+    "screensaver": "Bildschirmschoner",
+    "motionDetection": "Bewegungserkennung"
+  },
+  "security": {
+    "title": "Sicherheitseinstellungen",
+    "pinCode": "PIN-Code",
+    "setPin": "PIN Festlegen",
+    "pinMode": "PIN-Modus",
+    "numeric": "Numerisch",
+    "alphanumeric": "Alphanumerisch",
+    "kioskMode": "Kiosk-Modus",
+    "apiKey": "API-Schlüssel"
+  },
+  "advanced": {
+    "title": "Erweiterte Einstellungen",
+    "language": "Sprache",
+    "selectLanguage": "Sprache Auswählen",
+    "deviceInfo": "Geräteinformationen",
+    "version": "Version",
+    "backup": "Sicherung",
+    "restore": "Wiederherstellen",
+    "reboot": "Neustart"
+  },
+  "dashboard": {
+    "title": "Dashboard-Einstellungen",
+    "tiles": "Kacheln",
+    "addTile": "Kachel Hinzufügen",
+    "editTile": "Kachel Bearbeiten"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "add": "Hinzufügen",
+    "confirm": "Bestätigen",
+    "ok": "OK",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "loading": "Laden...",
+    "success": "Erfolg",
+    "failed": "Fehlgeschlagen",
+    "error": "Fehler"
+  },
+  "notifications": {
+    "settingsSaved": "Einstellungen gespeichert",
+    "settingsLoaded": "Einstellungen geladen",
+    "pinSet": "PIN festgelegt",
+    "pinRemoved": "PIN entfernt"
+  }
+}

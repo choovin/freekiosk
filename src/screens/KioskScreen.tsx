@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Text, NativeEventEmitter, NativeModules, AppState, DeviceEventEmitter, Dimensions, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNBrightness from 'react-native-brightness-newarch';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import WebViewComponent, { WebViewComponentRef } from '../components/WebViewComponent';
 import MediaPlayerComponent from '../components/MediaPlayerComponent';
@@ -29,6 +28,17 @@ import Icon from '../components/Icon';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { HttpServerModule } = NativeModules;
+
+// Helper function to set brightness (replaces react-native-brightness-newarch)
+const setBrightnessLevel = async (level: number) => {
+  try {
+    if (AutoBrightnessModule?.setBrightness) {
+      await AutoBrightnessModule.setBrightness(level);
+    }
+  } catch (error) {
+    console.error('[Brightness] Error setting brightness:', error);
+  }
+};
 
 type KioskScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Kiosk'>;
 
@@ -296,7 +306,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
         // Screensaver active: pause auto-brightness and apply screensaver brightness
         try {
           await AutoBrightnessModule.stopAutoBrightness();
-          await RNBrightness.setBrightnessLevel(screensaverBrightness);
+          await setBrightnessLevel(screensaverBrightness);
           console.log('[KioskScreen] Auto-brightness paused for screensaver');
         } catch (error) {
           console.error('[KioskScreen] Error pausing auto-brightness:', error);
@@ -347,7 +357,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
                 autoBrightnessInterval
               );
             } else {
-              await RNBrightness.setBrightnessLevel(defaultBrightness);
+              await setBrightnessLevel(defaultBrightness);
             }
           } catch (error) {
             console.error('[KioskScreen] Error restoring brightness:', error);
@@ -376,9 +386,9 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
               console.log('[API] Auto-brightness disabled (manual brightness set)');
             }
             
-            // API sends 0-100, RNBrightness needs 0-1
+            // API sends 0-100, we need 0-1
             const normalizedValue = value / 100;
-            await RNBrightness.setBrightnessLevel(normalizedValue);
+            await setBrightnessLevel(normalizedValue);
             setDefaultBrightness(normalizedValue);
             // Persist to storage so Settings shows updated value
             await StorageService.saveDefaultBrightness(normalizedValue);
@@ -554,7 +564,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
             // Restore saved manual brightness
             const savedBrightness = await StorageService.getAutoBrightnessSavedManual();
             if (savedBrightness !== null) {
-              await RNBrightness.setBrightnessLevel(savedBrightness);
+              await setBrightnessLevel(savedBrightness);
               setDefaultBrightness(savedBrightness);
             }
 
@@ -825,7 +835,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
     if (!isScreensaverActive) {
       (async () => {
         try {
-          await RNBrightness.setBrightnessLevel(defaultBrightness);
+          await setBrightnessLevel(defaultBrightness);
         } catch (error) {
           console.error('[KioskScreen] Error setting brightness:', error);
         }
@@ -1000,7 +1010,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       console.warn('[ScreenScheduler] Native screen off failed, using brightness fallback:', error);
       if (brightnessManagementRef.current) {
         try {
-          await RNBrightness.setBrightnessLevel(0);
+          await setBrightnessLevel(0);
         } catch (e) {
           console.error('[ScreenScheduler] Brightness fallback also failed:', e);
         }
@@ -1026,14 +1036,14 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
         if (autoBrightnessEnabled) {
           await AutoBrightnessModule.startAutoBrightness(autoBrightnessMin, autoBrightnessMax, autoBrightnessInterval);
         } else {
-          await RNBrightness.setBrightnessLevel(defaultBrightness);
+          await setBrightnessLevel(defaultBrightness);
         }
       }
     } catch (error) {
       console.error('[ScreenScheduler] Error waking screen:', error);
       if (brightnessManagementRef.current) {
         try {
-          await RNBrightness.setBrightnessLevel(defaultBrightness);
+          await setBrightnessLevel(defaultBrightness);
         } catch (e) {
           console.error('[ScreenScheduler] Brightness restore also failed:', e);
         }
@@ -1838,7 +1848,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       // Restaurer immédiatement la luminosité (sauf si auto-brightness car le useEffect s'en charge)
       if (brightnessManagementRef.current && !autoBrightnessEnabled) {
         try {
-          await RNBrightness.setBrightnessLevel(defaultBrightness);
+          await setBrightnessLevel(defaultBrightness);
         } catch (error) {
           console.error('[KioskScreen] Error restoring brightness on interaction:', error);
         }
@@ -1944,7 +1954,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
     // Restaurer immédiatement la luminosité (sauf si auto-brightness car le useEffect s'en charge)
     if (brightnessManagementRef.current && !autoBrightnessEnabled) {
       try {
-        await RNBrightness.setBrightnessLevel(defaultBrightness);
+        await setBrightnessLevel(defaultBrightness);
       } catch (error) {
         console.error('[KioskScreen] Error restoring brightness on tap:', error);
       }
@@ -1985,7 +1995,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
       // Restaurer immédiatement la luminosité (sauf si auto-brightness car le useEffect s'en charge)
       if (brightnessManagementRef.current && !autoBrightnessEnabled) {
         try {
-          await RNBrightness.setBrightnessLevel(defaultBrightness);
+          await setBrightnessLevel(defaultBrightness);
         } catch (error) {
           console.error('[KioskScreen] Error restoring brightness on motion:', error);
         }
@@ -1998,7 +2008,7 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   const enableScreensaverEffects = async () => {
     if (!brightnessManagementRef.current) return;
     try {
-      await RNBrightness.setBrightnessLevel(screensaverBrightness);
+      await setBrightnessLevel(screensaverBrightness);
     } catch (error) {
       console.error('Erreur activation luminosité screensaver:', error);
     }

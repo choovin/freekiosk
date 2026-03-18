@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "Geral",
+    "display": "Exibição",
+    "security": "Segurança",
+    "advanced": "Avançado",
+    "dashboard": "Painel"
+  },
+  "general": {
+    "title": "Configurações Gerais",
+    "displayMode": "Modo de Exibição",
+    "webView": "WebView",
+    "externalApp": "Aplicativo Externo",
+    "mediaPlayer": "Reprodutor",
+    "url": "URL",
+    "selectApp": "Selecionar App",
+    "pickApp": "Escolher App",
+    "managedApps": "Apps Gerenciados",
+    "addApp": "Adicionar App",
+    "schedule": "Agenda",
+    "addEvent": "Adicionar Evento"
+  },
+  "display": {
+    "title": "Configurações de Exibição",
+    "brightness": "Brilho",
+    "autoBrightness": "Brilho Automático",
+    "screensaver": "Proteção de Tela",
+    "motionDetection": "Detecção de Movimento"
+  },
+  "security": {
+    "title": "Configurações de Segurança",
+    "pinCode": "Código PIN",
+    "setPin": "Definir PIN",
+    "pinMode": "Modo PIN",
+    "numeric": "Numérico",
+    "alphanumeric": "Alfanumérico",
+    "kioskMode": "Modo Quiosque",
+    "apiKey": "Chave API"
+  },
+  "advanced": {
+    "title": "Configurações Avançadas",
+    "language": "Idioma",
+    "selectLanguage": "Selecionar Idioma",
+    "deviceInfo": "Informações do Dispositivo",
+    "version": "Versão",
+    "backup": "Backup",
+    "restore": "Restaurar",
+    "reboot": "Reiniciar"
+  },
+  "dashboard": {
+    "title": "Configurações do Painel",
+    "tiles": "Blocos",
+    "addTile": "Adicionar Bloco",
+    "editTile": "Editar Bloco"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "confirm": "Confirmar",
+    "ok": "OK",
+    "enabled": "Ativado",
+    "disabled": "Desativado",
+    "loading": "Carregando...",
+    "success": "Sucesso",
+    "failed": "Falhou",
+    "error": "Erro"
+  },
+  "notifications": {
+    "settingsSaved": "Configurações salvas",
+    "settingsLoaded": "Configurações carregadas",
+    "pinSet": "PIN definido",
+    "pinRemoved": "PIN removido"
+  }
+}

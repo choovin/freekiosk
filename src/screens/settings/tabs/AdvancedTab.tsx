@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, AppState, NativeModules } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SettingsSection,
   SettingsButton,
@@ -72,6 +73,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
   kioskEnabled,
   onRestoreComplete,
 }) => {
+  const { t } = useTranslation();
   const [accessibilityEnabled, setAccessibilityEnabled] = useState(false);
   const [accessibilityRunning, setAccessibilityRunning] = useState(false);
 
@@ -99,80 +101,74 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
 
   const handleOpenAccessibilitySettings = async () => {
     try {
-      // Use KioskModule.openAndroidSettings which properly handles Lock Task Mode
-      // (temporarily exits lock task before launching the settings intent)
       await KioskModule.openAndroidSettings('accessibility');
     } catch (e: any) {
-      Alert.alert('Error', 'Could not open Accessibility Settings');
+      Alert.alert(t('common.error'), t('advanced.openSettingsFailed'));
     }
   };
 
   const handleEnableViaDeviceOwner = async () => {
     try {
       await AccessibilityModule.enableViaDeviceOwner();
-      // Re-check status after enabling
       setTimeout(checkAccessibilityStatus, 1000);
-      Alert.alert('Success', 'Accessibility Service has been enabled automatically via Device Owner.');
+      Alert.alert(t('common.success'), t('advanced.accessibilityEnabled'));
     } catch (e: any) {
       if (e.code === 'WRITE_SECURE_SETTINGS_REQUIRED') {
         Alert.alert(
-          'Permission Required',
-          'To auto-enable the Accessibility Service, the WRITE_SECURE_SETTINGS permission must be granted via ADB (one-time setup):\n\n' +
-          'adb shell pm grant com.freekiosk android.permission.WRITE_SECURE_SETTINGS\n\n' +
-          'Alternatively, tap "Open Accessibility Settings" below to enable it manually.',
-          [{ text: 'OK' }],
+          t('security.title'),
+          t('advanced.writeSecureSettingsRequired'),
+          [{ text: t('common.ok') }],
         );
       } else {
-        Alert.alert('Error', e.message || 'Failed to enable via Device Owner');
+        Alert.alert(t('common.error'), e.message || t('common.failed'));
       }
     }
   };
   return (
     <View>
-      {/* App Updates - Hidden in Play Store builds (compliance: no in-app updates) */}
       {enableSelfUpdate && (
-      <SettingsSection title="Updates" icon="update">
+      <SettingsSection title={t('advanced.checkUpdate')} icon="update">
         <View style={styles.versionRow}>
-          <Text style={styles.versionLabel}>Current Version</Text>
+          <Text style={styles.versionLabel}>{t('advanced.version')}</Text>
           <Text style={styles.versionValue}>{currentVersion}</Text>
         </View>
-        
+
         {updateAvailable && updateInfo && (
-          <SettingsInfoBox variant="success" title={`🎉 ${updateInfo.isPrerelease ? '🧪 Beta ' : ''}Update Available`}>
+          <SettingsInfoBox variant="success" title={t('advanced.updateAvailable')}>
             <Text style={styles.infoText}>
-              Version {updateInfo.version} is available!{updateInfo.isPrerelease ? ' (pre-release)' : ''}
+              {t('advanced.version')} {updateInfo.version}{updateInfo.isPrerelease ? ' (pre-release)' : ''}
               {updateInfo.notes && `\n\n${updateInfo.notes.substring(0, 150)}...`}
             </Text>
           </SettingsInfoBox>
         )}
-        
+
         <View style={styles.betaRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.betaLabel}>🧪 Beta Updates</Text>
-            <Text style={styles.betaHint}>Receive pre-release versions before stable</Text>
+            <Text style={styles.betaLabel}>{t('advanced.betaUpdates')}</Text>
+            <Text style={styles.betaHint}>{t('advanced.betaUpdatesHint')}</Text>
           </View>
           <TouchableOpacity
             style={[styles.betaToggle, betaUpdatesEnabled && styles.betaToggleActive]}
             onPress={() => onBetaUpdatesChange(!betaUpdatesEnabled)}
           >
             <Text style={[styles.betaToggleText, betaUpdatesEnabled && styles.betaToggleTextActive]}>
-              {betaUpdatesEnabled ? 'ON' : 'OFF'}
+              {betaUpdatesEnabled ? t('common.on') : t('common.off')}
             </Text>
           </TouchableOpacity>
         </View>
-        
+
         <SettingsButton
-          title={checkingUpdate ? 'Checking...' : downloading ? 'Downloading...' : 'Check for Updates'}
+          title={checkingUpdate ? t('common.loading') : downloading ? t('advanced.downloading') : t('advanced.checkUpdate')}
           icon={checkingUpdate ? 'timer-sand' : downloading ? 'download' : 'magnify'}
           variant="primary"
           onPress={onCheckForUpdates}
           disabled={checkingUpdate || downloading}
           loading={checkingUpdate}
         />
-        
+
         {updateAvailable && updateInfo && (
           <SettingsButton
-            title={downloading ? 'Downloading...' : 'Download & Install'}
+            title={downloading ? t('advanced.downloading') : t('advanced.downloadAndInstall')}
             icon="download"
             variant="success"
             onPress={onDownloadUpdate}

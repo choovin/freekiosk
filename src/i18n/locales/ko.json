@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "일반",
+    "display": "디스플레이",
+    "security": "보안",
+    "advanced": "고급",
+    "dashboard": "대시보드"
+  },
+  "general": {
+    "title": "일반 설정",
+    "displayMode": "표시 모드",
+    "webView": "WebView",
+    "externalApp": "외부 앱",
+    "mediaPlayer": "미디어 플레이어",
+    "url": "URL",
+    "selectApp": "앱 선택",
+    "pickApp": "앱 선택",
+    "managedApps": "관리된 앱",
+    "addApp": "앱 추가",
+    "schedule": "일정",
+    "addEvent": "이벤트 추가"
+  },
+  "display": {
+    "title": "디스플레이 설정",
+    "brightness": "밝기",
+    "autoBrightness": "자동 밝기",
+    "screensaver": "스크린세이버",
+    "motionDetection": "모션 감지"
+  },
+  "security": {
+    "title": "보안 설정",
+    "pinCode": "PIN 코드",
+    "setPin": "PIN 설정",
+    "pinMode": "PIN 모드",
+    "numeric": "숫자",
+    "alphanumeric": "영숫자",
+    "kioskMode": "키오스크 모드",
+    "apiKey": "API 키"
+  },
+  "advanced": {
+    "title": "고급 설정",
+    "language": "언어",
+    "selectLanguage": "언어 선택",
+    "deviceInfo": "장치 정보",
+    "version": "버전",
+    "backup": "백업",
+    "restore": "복원",
+    "reboot": "재부팅"
+  },
+  "dashboard": {
+    "title": "대시보드 설정",
+    "tiles": "타일",
+    "addTile": "타일 추가",
+    "editTile": "타일 편집"
+  },
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "편집",
+    "add": "추가",
+    "confirm": "확인",
+    "ok": "확인",
+    "enabled": "활성",
+    "disabled": "비활성",
+    "loading": "로딩 중...",
+    "success": "성공",
+    "failed": "실패",
+    "error": "오류"
+  },
+  "notifications": {
+    "settingsSaved": "설정이 저장되었습니다",
+    "settingsLoaded": "설정이 로드되었습니다",
+    "pinSet": "PIN 이 설정되었습니다",
+    "pinRemoved": "PIN 이 제거되었습니다"
+  }
+}

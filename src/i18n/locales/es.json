@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "General",
+    "display": "Pantalla",
+    "security": "Seguridad",
+    "advanced": "Avanzado",
+    "dashboard": "Tablero"
+  },
+  "general": {
+    "title": "Configuración General",
+    "displayMode": "Modo de Pantalla",
+    "webView": "WebView",
+    "externalApp": "Aplicación Externa",
+    "mediaPlayer": "Reproductor",
+    "url": "URL",
+    "selectApp": "Seleccionar App",
+    "pickApp": "Elegir App",
+    "managedApps": "Apps Gestionadas",
+    "addApp": "Agregar App",
+    "schedule": "Horario",
+    "addEvent": "Agregar Evento"
+  },
+  "display": {
+    "title": "Configuración de Pantalla",
+    "brightness": "Brillo",
+    "autoBrightness": "Brillo Automático",
+    "screensaver": "Salvapantallas",
+    "motionDetection": "Detección de Movimiento"
+  },
+  "security": {
+    "title": "Configuración de Seguridad",
+    "pinCode": "Código PIN",
+    "setPin": "Establecer PIN",
+    "pinMode": "Modo PIN",
+    "numeric": "Numérico",
+    "alphanumeric": "Alfanumérico",
+    "kioskMode": "Modo Kiosco",
+    "apiKey": "Clave API"
+  },
+  "advanced": {
+    "title": "Configuración Avanzada",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar Idioma",
+    "deviceInfo": "Información del Dispositivo",
+    "version": "Versión",
+    "backup": "Copia de Seguridad",
+    "restore": "Restaurar",
+    "reboot": "Reiniciar"
+  },
+  "dashboard": {
+    "title": "Configuración del Tablero",
+    "tiles": "Baldosas",
+    "addTile": "Agregar Baldosa",
+    "editTile": "Editar Baldosa"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "confirm": "Confirmar",
+    "ok": "OK",
+    "enabled": "Activado",
+    "disabled": "Desactivado",
+    "loading": "Cargando...",
+    "success": "Éxito",
+    "failed": "Fallido",
+    "error": "Error"
+  },
+  "notifications": {
+    "settingsSaved": "Configuración guardada",
+    "settingsLoaded": "Configuración cargada",
+    "pinSet": "PIN establecido",
+    "pinRemoved": "PIN eliminado"
+  }
+}

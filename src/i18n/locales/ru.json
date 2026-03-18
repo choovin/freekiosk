@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "Основные",
+    "display": "Экран",
+    "security": "Безопасность",
+    "advanced": "Дополнительно",
+    "dashboard": "Панель"
+  },
+  "general": {
+    "title": "Основные настройки",
+    "displayMode": "Режим экрана",
+    "webView": "WebView",
+    "externalApp": "Внешнее приложение",
+    "mediaPlayer": "Медиаплеер",
+    "url": "URL",
+    "selectApp": "Выбрать приложение",
+    "pickApp": "Выбрать приложение",
+    "managedApps": "Управляемые приложения",
+    "addApp": "Добавить приложение",
+    "schedule": "Расписание",
+    "addEvent": "Добавить событие"
+  },
+  "display": {
+    "title": "Настройки экрана",
+    "brightness": "Яркость",
+    "autoBrightness": "Автояркость",
+    "screensaver": "Заставка",
+    "motionDetection": "Обнаружение движения"
+  },
+  "security": {
+    "title": "Настройки безопасности",
+    "pinCode": "PIN-код",
+    "setPin": "Установить PIN",
+    "pinMode": "Режим PIN",
+    "numeric": "Цифровой",
+    "alphanumeric": "Буквенно-цифровой",
+    "kioskMode": "Режим киоска",
+    "apiKey": "API-ключ"
+  },
+  "advanced": {
+    "title": "Дополнительные настройки",
+    "language": "Язык",
+    "selectLanguage": "Выбрать язык",
+    "deviceInfo": "Информация об устройстве",
+    "version": "Версия",
+    "backup": "Резервная копия",
+    "restore": "Восстановить",
+    "reboot": "Перезагрузка"
+  },
+  "dashboard": {
+    "title": "Настройки панели",
+    "tiles": "Плитки",
+    "addTile": "Добавить плитку",
+    "editTile": "Редактировать плитку"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "add": "Добавить",
+    "confirm": "Подтвердить",
+    "ok": "OK",
+    "enabled": "Включено",
+    "disabled": "Отключено",
+    "loading": "Загрузка...",
+    "success": "Успешно",
+    "failed": "Ошибка",
+    "error": "Ошибка"
+  },
+  "notifications": {
+    "settingsSaved": "Настройки сохранены",
+    "settingsLoaded": "Настройки загружены",
+    "pinSet": "PIN установлен",
+    "pinRemoved": "PIN удален"
+  }
+}

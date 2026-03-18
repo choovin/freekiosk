@@ -1,0 +1,78 @@
+{
+  "app": { "name": "FreeKiosk" },
+  "tabs": {
+    "general": "一般",
+    "display": "表示",
+    "security": "セキュリティ",
+    "advanced": "詳細",
+    "dashboard": "ダッシュボード"
+  },
+  "general": {
+    "title": "一般設定",
+    "displayMode": "表示モード",
+    "webView": "WebView",
+    "externalApp": "外部アプリ",
+    "mediaPlayer": "メディアプレイヤー",
+    "url": "URL",
+    "selectApp": "アプリを選択",
+    "pickApp": "アプリを選ぶ",
+    "managedApps": "管理アプリ",
+    "addApp": "アプリを追加",
+    "schedule": "スケジュール",
+    "addEvent": "イベントを追加"
+  },
+  "display": {
+    "title": "表示設定",
+    "brightness": "明るさ",
+    "autoBrightness": "自動明るさ",
+    "screensaver": "スクリーンセーバー",
+    "motionDetection": "動き検出"
+  },
+  "security": {
+    "title": "セキュリティ設定",
+    "pinCode": "PIN コード",
+    "setPin": "PIN を設定",
+    "pinMode": "PIN モード",
+    "numeric": "数字",
+    "alphanumeric": "英数字",
+    "kioskMode": "キオスクモード",
+    "apiKey": "API キー"
+  },
+  "advanced": {
+    "title": "詳細設定",
+    "language": "言語",
+    "selectLanguage": "言語を選択",
+    "deviceInfo": "デバイス情報",
+    "version": "バージョン",
+    "backup": "バックアップ",
+    "restore": "復元",
+    "reboot": "再起動"
+  },
+  "dashboard": {
+    "title": "ダッシュボード設定",
+    "tiles": "タイル",
+    "addTile": "タイルを追加",
+    "editTile": "タイルを編集"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "add": "追加",
+    "confirm": "確認",
+    "ok": "OK",
+    "enabled": "有効",
+    "disabled": "無効",
+    "loading": "読み込み中...",
+    "success": "成功",
+    "failed": "失敗",
+    "error": "エラー"
+  },
+  "notifications": {
+    "settingsSaved": "設定を保存しました",
+    "settingsLoaded": "設定を読み込みました",
+    "pinSet": "PIN を設定しました",
+    "pinRemoved": "PIN を削除しました"
+  }
+}
