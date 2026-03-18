@@ -48,6 +48,77 @@ class MqttForegroundService : Service() {
         @Volatile
         var commandExecutor: CommandHandler.CommandExecutor? = null
 
+        // MQTT 客户端实例引用（用于发布消息）
+        @Volatile
+        private var mqttClientInstance: EmqxMqttClient? = null
+
+        /**
+         * 获取 MQTT 客户端实例
+         * 用于外部模块发布消息
+         */
+        fun getMqttClient(): EmqxMqttClient? = mqttClientInstance
+
+        /**
+         * 发布设备状态
+         * @param payload JSON 格式的状态数据
+         */
+        fun publishStatus(payload: String) {
+            mqttClientInstance?.publishStatus(payload)
+                ?.whenComplete { _, error ->
+                    if (error != null) {
+                        Log.e(TAG, "发布状态失败", error)
+                    } else {
+                        Log.d(TAG, "状态已发布")
+                    }
+                }
+        }
+
+        /**
+         * 发布设备事件
+         * @param payload JSON 格式的事件数据
+         */
+        fun publishEvent(payload: String) {
+            mqttClientInstance?.publishEvent(payload)
+                ?.whenComplete { _, error ->
+                    if (error != null) {
+                        Log.e(TAG, "发布事件失败", error)
+                    } else {
+                        Log.d(TAG, "事件已发布")
+                    }
+                }
+        }
+
+        /**
+         * 发布遥测数据
+         * @param payload JSON 格式的遥测数据
+         */
+        fun publishTelemetry(payload: String) {
+            mqttClientInstance?.publishTelemetry(payload)
+                ?.whenComplete { _, error ->
+                    if (error != null) {
+                        Log.e(TAG, "发布遥测数据失败", error)
+                    } else {
+                        Log.d(TAG, "遥测数据已发布")
+                    }
+                }
+        }
+
+        /**
+         * 发送命令响应
+         * @param commandId 命令 ID
+         * @param payload JSON 格式的响应数据
+         */
+        fun sendCommandResponse(commandId: String, payload: String) {
+            mqttClientInstance?.publishResponse(commandId, payload)
+                ?.whenComplete { _, error ->
+                    if (error != null) {
+                        Log.e(TAG, "发送命令响应失败", error)
+                    } else {
+                        Log.d(TAG, "命令响应已发送: $commandId")
+                    }
+                }
+        }
+
         /**
          * 启动服务
          *
@@ -122,6 +193,7 @@ class MqttForegroundService : Service() {
         scope.cancel()
         networkMonitor?.unregisterCallback()
         mqttClient?.destroy()
+        mqttClientInstance = null  // 清除客户端引用
         super.onDestroy()
     }
 
@@ -195,6 +267,9 @@ class MqttForegroundService : Service() {
                 updateNotification("连接错误: ${error.message}")
             }
         }
+
+        // 设置静态客户端引用，供外部模块使用
+        mqttClientInstance = mqttClient
 
         // 创建命令处理器
         commandExecutor?.let { executor ->

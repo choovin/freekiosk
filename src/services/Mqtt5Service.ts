@@ -90,6 +90,12 @@ class Mqtt5ServiceClass {
   private isRunning: boolean = false;
   private config: Mqtt5Config | null = null;
 
+  // 状态上报定时器
+  private statusReportTimer: ReturnType<typeof setInterval> | null = null;
+
+  // 默认状态上报间隔（毫秒）
+  private readonly DEFAULT_STATUS_INTERVAL = 30000; // 30 秒
+
   constructor() {
     if (Platform.OS === 'android' && Mqtt5Module) {
       this.eventEmitter = new NativeEventEmitter(Mqtt5Module);
@@ -260,6 +266,10 @@ class Mqtt5ServiceClass {
 
     try {
       console.log('[Mqtt5Service] 正在停止服务...');
+
+      // 停止状态上报
+      this.stopStatusReporting();
+
       const result = await Mqtt5Module.stop();
 
       this.isRunning = false;
@@ -397,9 +407,32 @@ class Mqtt5ServiceClass {
    * 定期采集并上报设备状态。
    */
   private startStatusReporting(): void {
-    // 状态上报逻辑将在 Phase 4 实现
-    // 这里先预留接口
-    console.log('[Mqtt5Service] 状态上报已就绪');
+    // 停止之前的定时器
+    this.stopStatusReporting();
+
+    // 获取状态上报间隔
+    const interval = this.config?.statusInterval || this.DEFAULT_STATUS_INTERVAL;
+
+    console.log(`[Mqtt5Service] 启动状态上报，间隔: ${interval}ms`);
+
+    // 立即上报一次状态
+    this.reportStatus();
+
+    // 启动定时上报
+    this.statusReportTimer = setInterval(() => {
+      this.reportStatus();
+    }, interval);
+  }
+
+  /**
+   * 停止状态上报
+   */
+  private stopStatusReporting(): void {
+    if (this.statusReportTimer) {
+      clearInterval(this.statusReportTimer);
+      this.statusReportTimer = null;
+      console.log('[Mqtt5Service] 状态上报已停止');
+    }
   }
 
   /**
@@ -412,7 +445,16 @@ class Mqtt5ServiceClass {
 
     try {
       const status = await DeviceControlService.getStatus();
-      await this.publishStatus(status);
+
+      // 添加设备标识信息
+      const fullStatus = {
+        ...status,
+        deviceId: this.config?.deviceId,
+        tenantId: this.config?.tenantId,
+        reportedAt: new Date().toISOString(),
+      };
+
+      await this.publishStatus(fullStatus);
       console.log('[Mqtt5Service] 状态已上报');
     } catch (error) {
       console.error('[Mqtt5Service] 上报状态失败:', error);
@@ -434,9 +476,55 @@ class Mqtt5ServiceClass {
   }
 
   /**
+   * 手动触发状态上报
+   *
+   * 用于在状态变化时立即上报，不等待定时器。
+   */
+  async reportStatusNow(): Promise<void> {
+    return this.reportStatus();
+  }
+
+  /**
+   * 更新状态上报间隔
+   *
+   * @param interval 新的间隔时间（毫秒）
+   */
+  updateStatusInterval(interval: number): void {
+    if (this.config) {
+      this.config.statusInterval = interval;
+    }
+
+    // 如果服务正在运行，重启状态上报
+    if (this.isRunning) {
+      this.startStatusReporting();
+    }
+  }
+
+  /**
+   * 发布设备事件（状态变化时使用）
+   *
+   * @param eventType 事件类型
+   * @param eventData 事件数据
+   */
+  async reportEvent(eventType: string, eventData: Record<string, unknown> = {}): Promise<boolean> {
+    const event = {
+      type: eventType,
+      deviceId: this.config?.deviceId,
+      tenantId: this.config?.tenantId,
+      timestamp: new Date().toISOString(),
+      data: eventData,
+    };
+
+    return this.publishEvent(event);
+  }
+
+  /**
    * 清理资源
    */
   cleanup(): void {
+    // 停止状态上报
+    this.stopStatusReporting();
+
     if (this.commandSubscription) {
       this.commandSubscription.remove();
       this.commandSubscription = null;

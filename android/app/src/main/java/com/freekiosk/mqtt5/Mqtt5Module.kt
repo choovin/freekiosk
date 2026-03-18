@@ -168,8 +168,13 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun publishStatus(statusJson: String, promise: Promise) {
-        promise.resolve(true)
-        // 实际发布由服务中的客户端处理
+        try {
+            MqttForegroundService.publishStatus(statusJson)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "发布状态失败", e)
+            promise.reject("PUBLISH_ERROR", e.message)
+        }
     }
 
     /**
@@ -179,7 +184,13 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun publishEvent(eventJson: String, promise: Promise) {
-        promise.resolve(true)
+        try {
+            MqttForegroundService.publishEvent(eventJson)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "发布事件失败", e)
+            promise.reject("PUBLISH_ERROR", e.message)
+        }
     }
 
     /**
@@ -189,7 +200,13 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun publishTelemetry(telemetryJson: String, promise: Promise) {
-        promise.resolve(true)
+        try {
+            MqttForegroundService.publishTelemetry(telemetryJson)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "发布遥测数据失败", e)
+            promise.reject("PUBLISH_ERROR", e.message)
+        }
     }
 
     /**
@@ -200,7 +217,13 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
      */
     @ReactMethod
     fun sendCommandResponse(commandId: String, resultJson: String, promise: Promise) {
-        promise.resolve(true)
+        try {
+            MqttForegroundService.sendCommandResponse(commandId, resultJson)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "发送命令响应失败", e)
+            promise.reject("PUBLISH_ERROR", e.message)
+        }
     }
 
     /**
