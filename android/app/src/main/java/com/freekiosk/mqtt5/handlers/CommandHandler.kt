@@ -23,15 +23,43 @@ class CommandHandler(
     companion object {
         private const val TAG = "CommandHandler"
 
-        // 支持的命令类型
+        // 屏幕控制命令
         const val CMD_SET_BRIGHTNESS = "setBrightness"
         const val CMD_SET_SCREEN = "setScreen"
+        const val CMD_SET_ROTATION = "setRotation"
+        const val CMD_WAKE_UP = "wakeUp"
+        const val CMD_SLEEP = "sleep"
+
+        // 音频控制命令
         const val CMD_SET_VOLUME = "setVolume"
+        const val CMD_PLAY_SOUND = "playSound"
+        const val CMD_STOP_SOUND = "stopSound"
+        const val CMD_SPEAK = "speak"
+
+        // WebView 控制命令
         const val CMD_NAVIGATE = "navigate"
         const val CMD_RELOAD = "reload"
+        const val CMD_GO_BACK = "goBack"
+        const val CMD_GO_FORWARD = "goForward"
+        const val CMD_EXECUTE_JS = "executeJs"
+
+        // 系统控制命令
         const val CMD_REBOOT = "reboot"
         const val CMD_CLEAR_CACHE = "clearCache"
         const val CMD_UPDATE_APP = "updateApp"
+        const val CMD_SET_KIOSK_MODE = "setKioskMode"
+
+        // 应用管理命令
+        const val CMD_INSTALL_APP = "installApp"
+        const val CMD_UNINSTALL_APP = "uninstallApp"
+        const val CMD_START_APP = "startApp"
+        const val CMD_STOP_APP = "stopApp"
+
+        // 信息获取命令
+        const val CMD_SCREENSHOT = "screenshot"
+        const val CMD_GET_LOGS = "getLogs"
+        const val CMD_GET_WIFI_INFO = "getWifiInfo"
+        const val CMD_GET_DEVICE_INFO = "getDeviceInfo"
     }
 
     /**
@@ -86,10 +114,47 @@ class CommandHandler(
                 commandExecutor.setScreenOn(on)
             }
 
+            CMD_SET_ROTATION -> {
+                val rotation = params.optInt("rotation", 0)
+                commandExecutor.setRotation(rotation)
+            }
+
+            CMD_WAKE_UP -> {
+                commandExecutor.wakeUp()
+            }
+
+            CMD_SLEEP -> {
+                commandExecutor.sleep()
+            }
+
             // 音频控制
             CMD_SET_VOLUME -> {
                 val volume = params.optInt("volume", 50)
                 commandExecutor.setVolume(volume)
+            }
+
+            CMD_PLAY_SOUND -> {
+                val soundUrl = params.optString("url", "")
+                val loop = params.optBoolean("loop", false)
+                if (soundUrl.isNotEmpty()) {
+                    commandExecutor.playSound(soundUrl, loop)
+                } else {
+                    CommandResult(false, error = "Sound URL 不能为空")
+                }
+            }
+
+            CMD_STOP_SOUND -> {
+                commandExecutor.stopSound()
+            }
+
+            CMD_SPEAK -> {
+                val text = params.optString("text", "")
+                val language = params.optString("language", "zh-CN")
+                if (text.isNotEmpty()) {
+                    commandExecutor.speak(text, language)
+                } else {
+                    CommandResult(false, error = "Text 不能为空")
+                }
             }
 
             // WebView 控制
@@ -104,6 +169,23 @@ class CommandHandler(
 
             CMD_RELOAD -> {
                 commandExecutor.reload()
+            }
+
+            CMD_GO_BACK -> {
+                commandExecutor.goBack()
+            }
+
+            CMD_GO_FORWARD -> {
+                commandExecutor.goForward()
+            }
+
+            CMD_EXECUTE_JS -> {
+                val jsCode = params.optString("code", "")
+                if (jsCode.isNotEmpty()) {
+                    commandExecutor.executeJs(jsCode)
+                } else {
+                    CommandResult(false, error = "JS code 不能为空")
+                }
             }
 
             // 系统控制
@@ -122,6 +204,66 @@ class CommandHandler(
                 } else {
                     CommandResult(false, error = "APK URL 不能为空")
                 }
+            }
+
+            CMD_SET_KIOSK_MODE -> {
+                val enabled = params.optBoolean("enabled", true)
+                commandExecutor.setKioskMode(enabled)
+            }
+
+            // 应用管理
+            CMD_INSTALL_APP -> {
+                val apkUrl = params.optString("apkUrl", "")
+                if (apkUrl.isNotEmpty()) {
+                    commandExecutor.installApp(apkUrl)
+                } else {
+                    CommandResult(false, error = "APK URL 不能为空")
+                }
+            }
+
+            CMD_UNINSTALL_APP -> {
+                val packageName = params.optString("packageName", "")
+                if (packageName.isNotEmpty()) {
+                    commandExecutor.uninstallApp(packageName)
+                } else {
+                    CommandResult(false, error = "Package name 不能为空")
+                }
+            }
+
+            CMD_START_APP -> {
+                val packageName = params.optString("packageName", "")
+                if (packageName.isNotEmpty()) {
+                    commandExecutor.startApp(packageName)
+                } else {
+                    CommandResult(false, error = "Package name 不能为空")
+                }
+            }
+
+            CMD_STOP_APP -> {
+                val packageName = params.optString("packageName", "")
+                if (packageName.isNotEmpty()) {
+                    commandExecutor.stopApp(packageName)
+                } else {
+                    CommandResult(false, error = "Package name 不能为空")
+                }
+            }
+
+            // 信息获取
+            CMD_SCREENSHOT -> {
+                commandExecutor.screenshot()
+            }
+
+            CMD_GET_LOGS -> {
+                val lines = params.optInt("lines", 100)
+                commandExecutor.getLogs(lines)
+            }
+
+            CMD_GET_WIFI_INFO -> {
+                commandExecutor.getWifiInfo()
+            }
+
+            CMD_GET_DEVICE_INFO -> {
+                commandExecutor.getDeviceInfo()
             }
 
             else -> {
@@ -170,20 +312,40 @@ class CommandHandler(
         // 屏幕控制
         fun setBrightness(brightness: Int): CommandResult
         fun setScreenOn(on: Boolean): CommandResult
+        fun setRotation(rotation: Int): CommandResult
+        fun wakeUp(): CommandResult
+        fun sleep(): CommandResult
 
         // 音频控制
         fun setVolume(volume: Int): CommandResult
+        fun playSound(url: String, loop: Boolean = false): CommandResult
+        fun stopSound(): CommandResult
+        fun speak(text: String, language: String = "zh-CN"): CommandResult
 
         // WebView 控制
         fun navigate(url: String): CommandResult
         fun reload(): CommandResult
+        fun goBack(): CommandResult
+        fun goForward(): CommandResult
+        fun executeJs(code: String): CommandResult
 
         // 系统控制
         fun reboot(): CommandResult
         fun clearCache(): CommandResult
-
-        // 应用更新
         fun updateApp(apkUrl: String): CommandResult
+        fun setKioskMode(enabled: Boolean): CommandResult
+
+        // 应用管理
+        fun installApp(apkUrl: String): CommandResult
+        fun uninstallApp(packageName: String): CommandResult
+        fun startApp(packageName: String): CommandResult
+        fun stopApp(packageName: String): CommandResult
+
+        // 信息获取
+        fun screenshot(): CommandResult
+        fun getLogs(lines: Int = 100): CommandResult
+        fun getWifiInfo(): CommandResult
+        fun getDeviceInfo(): CommandResult
     }
 
     /**
