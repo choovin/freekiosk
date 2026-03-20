@@ -69,6 +69,96 @@ class EmqxMqttClient(
     var onConnected: (() -> Unit)? = null
     var onDisconnected: (() -> Unit)? = null
     var onError: ((Throwable) -> Unit)? = null
+    var onTokenRefreshRequired: (() -> Unit)? = null  // 企业版: Token 刷新回调
+
+    /**
+     * 更新 JWT Token（用于 Token 刷新后更新连接）
+     *
+     * @param newToken 新的 JWT Access Token
+     */
+    fun updateJwtToken(newToken: String) {
+        config.jwtToken?.let {
+            Log.i(TAG, "JWT Token updated for next reconnection")
+        }
+    }
+
+    /**
+     * 重新认证（Token 刷新后调用）
+     *
+     * 断开并使用新 Token 重新连接。
+     *
+     * @param newToken 新的 JWT Access Token
+     * @return 连接操作的 CompletableFuture
+     */
+    fun reauthenticate(newToken: String): CompletableFuture<Void> {
+        Log.i(TAG, "Reauthenticating with new JWT token")
+
+        // 断开当前连接
+        return disconnect().thenCompose {
+            // 更新配置中的 Token
+            // 注意：由于 config 是 data class，需要重新构建或使用新的连接方式
+            // 这里使用 jwtToken 字段
+            reconnectWithNewToken(newToken)
+        }
+    }
+
+    private fun reconnectWithNewToken(newToken: String): CompletableFuture<Void> {
+        val clientId = config.toClientId()
+
+        // 重新构建客户端
+        val builder = Mqtt5Client.builder()
+            .identifier(clientId)
+            .serverHost(config.brokerUrl)
+            .serverPort(config.port)
+            .automaticReconnectWithDefaultConfig()
+            .addConnectedListener { onConnectionEstablished() }
+            .addDisconnectedListener { onConnectionLost(it) }
+
+        if (config.useTls) {
+            builder.sslWithDefaultConfig()
+        }
+
+        client = builder.buildAsync()
+
+        // 使用新 Token 构建连接
+        val connectBuilder = Mqtt5Connect.builder()
+            .keepAlive(config.keepAlive)
+            .cleanStart(false)  // 保持会话
+            .sessionExpiryInterval(config.sessionExpiryInterval)
+
+        connectBuilder.restrictions(
+            Mqtt5ConnectRestrictions.builder()
+                .receiveMaximum(100)
+                .sendMaximum(100)
+                .maximumPacketSize(config.maxPacketSize)
+                .topicAliasMaximum(10)
+                .build()
+        )
+
+        // 使用新 Token 认证
+        connectBuilder.simpleAuth(
+            Mqtt5SimpleAuth.builder()
+                .username("jwt")
+                .password(newToken.toByteArray())
+                .build()
+        )
+
+        // LWT
+        val lwtTopic = config.statusTopic()
+        val lwtPayload = """{"status":"offline","deviceId":"${config.deviceId}","tenantId":"${config.tenantId}"}"""
+        connectBuilder.willPublish(
+            Mqtt5Publish.builder()
+                .topic(lwtTopic)
+                .payload(lwtPayload.toByteArray())
+                .retain(true)
+                .build()
+        )
+
+        return client!!.connect(connectBuilder.build()).thenAccept {
+            Log.i(TAG, "Reauthenticated successfully with new token")
+            isConnected = true
+        }
+    }
 
     /**
      * 初始化并连接到 MQTT Broker
@@ -118,13 +208,16 @@ class EmqxMqttClient(
         )
 
         // 配置 JWT 认证
-        config.jwtToken?.let { token ->
+        // 优先使用 accessToken (企业版)，其次使用 jwtToken (旧版)
+        val tokenToUse = config.accessToken ?: config.jwtToken
+        tokenToUse?.let { token ->
             connectBuilder.simpleAuth(
                 Mqtt5SimpleAuth.builder()
                     .username("jwt")
                     .password(token.toByteArray())
                     .build()
             )
+            Log.d(TAG, "JWT 认证已配置")
         }
 
         // 配置 LWT (Last Will and Testament) - 离线时自动发布

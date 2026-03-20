@@ -15,6 +15,9 @@ import kotlinx.parcelize.Parcelize
  * @property deviceId 设备 ID（唯一标识）
  * @property useTls 是否使用 TLS 加密
  * @property jwtToken JWT 认证令牌（可选）
+ * @property accessToken JWT Access Token（企业版）
+ * @property refreshToken JWT Refresh Token（企业版）
+ * @property deviceKey 设备唯一标识键（企业版）
  * @property clientCertPath 客户端证书路径（可选，用于双向 TLS）
  * @property clientKeyPath 客户端私钥路径（可选，用于双向 TLS）
  * @property keepAlive 心跳间隔（秒）
@@ -37,6 +40,9 @@ data class Mqtt5Config(
 
     // 认证配置
     val jwtToken: String? = null,
+    val accessToken: String? = null,       // 企业版: JWT Access Token
+    val refreshToken: String? = null,      // 企业版: JWT Refresh Token
+    val deviceKey: String? = null,         // 企业版: 设备唯一标识键
     val clientCertPath: String? = null,
     val clientKeyPath: String? = null,
 

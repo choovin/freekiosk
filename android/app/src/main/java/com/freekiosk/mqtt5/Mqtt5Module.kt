@@ -6,6 +6,7 @@ import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.freekiosk.mqtt5.handlers.CommandHandler
 import com.freekiosk.service.MqttForegroundService
+import com.freekiosk.auth.JwtTokenManager
 import kotlinx.coroutines.*
 
 /**
@@ -75,6 +76,8 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
      *   - deviceId: 设备 ID (必需)
      *   - useTls: 是否使用 TLS (默认 false)
      *   - jwtToken: JWT 认证令牌 (可选)
+     *   - accessToken: JWT Access Token (企业版, 可选)
+     *   - deviceKey: 设备唯一标识键 (企业版, 可选)
      *   - keepAlive: 心跳间隔秒数 (默认 60)
      *   - cleanStart: 是否清除会话 (默认 false)
      */
@@ -100,6 +103,15 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
                 return
             }
 
+            // 企业版: 尝试从存储获取 Token
+            val tokenManager = JwtTokenManager(reactContext)
+            val storedAccessToken = tokenManager.getAccessToken()
+            val storedDeviceKey = tokenManager.getDeviceId()
+
+            // 优先使用存储的 Token，其次使用传入的参数
+            val accessToken = configMap.getString("accessToken") ?: storedAccessToken
+            val deviceKey = configMap.getString("deviceKey") ?: storedDeviceKey
+
             val config = Mqtt5Config(
                 brokerUrl = brokerUrl,
                 port = if (configMap.hasKey("port")) configMap.getInt("port") else Mqtt5Config.DEFAULT_PORT,
@@ -107,6 +119,8 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
                 deviceId = deviceId,
                 useTls = if (configMap.hasKey("useTls")) configMap.getBoolean("useTls") else false,
                 jwtToken = if (configMap.hasKey("jwtToken")) configMap.getString("jwtToken") else null,
+                accessToken = accessToken,
+                deviceKey = deviceKey,
                 keepAlive = if (configMap.hasKey("keepAlive")) configMap.getInt("keepAlive") else Mqtt5Config.DEFAULT_KEEP_ALIVE,
                 cleanStart = if (configMap.hasKey("cleanStart")) configMap.getBoolean("cleanStart") else false,
                 sessionExpiryInterval = if (configMap.hasKey("sessionExpiryInterval")) configMap.getLong("sessionExpiryInterval") else Mqtt5Config.DEFAULT_SESSION_EXPIRY,
