@@ -1,8 +1,12 @@
 package com.freekiosk.mqtt5.handlers
 
+import android.content.Context
 import android.util.Log
 import com.freekiosk.mqtt5.EmqxMqttClient
+import com.freekiosk.security.AppWhitelistManager
+import com.freekiosk.security.SecurityPolicyManager
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish
+import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -15,10 +19,12 @@ import java.util.UUID
  *
  * @property mqttClient MQTT 客户端实例
  * @property commandExecutor 命令执行器接口
+ * @property context Android 上下文
  */
 class CommandHandler(
     private val mqttClient: EmqxMqttClient,
-    private val commandExecutor: CommandExecutor
+    private val commandExecutor: CommandExecutor,
+    private val context: Context
 ) {
     companion object {
         private const val TAG = "CommandHandler"
@@ -60,7 +66,18 @@ class CommandHandler(
         const val CMD_GET_LOGS = "getLogs"
         const val CMD_GET_WIFI_INFO = "getWifiInfo"
         const val CMD_GET_DEVICE_INFO = "getDeviceInfo"
+
+        // 安全策略命令
+        const val CMD_UPDATE_POLICY = "updatePolicy"
+        const val CMD_UPDATE_WHITELIST = "updateWhitelist"
+        const val CMD_GET_POLICY = "getPolicy"
+        const val CMD_GET_WHITELIST = "getWhitelist"
+        const val CMD_VALIDATE_PASSWORD = "validatePassword"
     }
+
+    // 安全策略管理器
+    private val securityPolicyManager = SecurityPolicyManager(context)
+    private val appWhitelistManager = AppWhitelistManager(context)
 
     /**
      * 处理收到的命令消息
@@ -264,6 +281,137 @@ class CommandHandler(
 
             CMD_GET_DEVICE_INFO -> {
                 commandExecutor.getDeviceInfo()
+            }
+
+            // 安全策略命令
+            CMD_UPDATE_POLICY -> {
+                val policyJson = params.optJSONObject("policy")
+                if (policyJson != null) {
+                    val success = securityPolicyManager.parsePolicyFromJson(policyJson)
+                    if (success) {
+                        CommandResult(true, result = "策略已更新")
+                    } else {
+                        CommandResult(false, error = "策略解析失败")
+                    }
+                } else {
+                    CommandResult(false, error = "策略数据不能为空")
+                }
+            }
+
+            CMD_UPDATE_WHITELIST -> {
+                val whitelistJson = params.optJSONArray("whitelist")
+                if (whitelistJson != null) {
+                    val entries = mutableListOf<AppWhitelistManager.WhitelistEntry>()
+                    for (i in 0 until whitelistJson.length()) {
+                        val obj = whitelistJson.getJSONObject(i)
+                        entries.add(
+                            AppWhitelistManager.WhitelistEntry(
+                                packageName = obj.optString("package_name", ""),
+                                appName = obj.optString("app_name", ""),
+                                autoLaunch = obj.optBoolean("auto_launch", false),
+                                allowNotifications = obj.optBoolean("allow_notifications", false),
+                                defaultShortcut = obj.optBoolean("default_shortcut", false)
+                            )
+                        )
+                    }
+                    appWhitelistManager.setWhitelist(entries)
+                    CommandResult(true, result = "白名单已更新: ${entries.size} 个应用")
+                } else {
+                    CommandResult(false, error = "白名单数据不能为空")
+                }
+            }
+
+            CMD_GET_POLICY -> {
+                val settings = securityPolicyManager.getCurrentSettings()
+                if (settings != null) {
+                    val settingsJson = JSONObject().apply {
+                        // Password Policy
+                        settings.passwordPolicy?.let { pp ->
+                            put("password_policy", JSONObject().apply {
+                                put("enabled", pp.enabled)
+                                put("min_length", pp.minLength)
+                                put("require_uppercase", pp.requireUppercase)
+                                put("require_lowercase", pp.requireLowercase)
+                                put("require_numbers", pp.requireNumbers)
+                                put("require_symbols", pp.requireSymbols)
+                                put("max_attempts", pp.maxAttempts)
+                                put("lockout_duration_minutes", pp.lockoutDuration)
+                            })
+                        }
+                        // Timeout Settings
+                        settings.timeoutSettings?.let { ts ->
+                            put("timeout_settings", JSONObject().apply {
+                                put("screen_off_timeout", ts.screenOffTimeout)
+                                put("lock_timeout", ts.lockTimeout)
+                                put("session_timeout", ts.sessionTimeout)
+                                put("inactivity_lock_timeout", ts.inactivityLockTimeout)
+                            })
+                        }
+                        // System Hardening
+                        settings.systemHardening?.let { sh ->
+                            put("system_hardening", JSONObject().apply {
+                                put("disable_usb_debug", sh.disableUsbDebug)
+                                put("disable_adb_install", sh.disableAdbInstall)
+                                put("disable_settings_access", sh.disableSettingsAccess)
+                                put("disable_screenshot", sh.disableScreenshot)
+                                put("disable_screen_capture", sh.disableScreenCapture)
+                                put("disable_status_bar", sh.disableStatusBar)
+                                put("disable_navigation_bar", sh.disableNavigationBar)
+                                put("safe_boot", sh.safeBoot)
+                                put("disable_power_menu", sh.disablePowerMenu)
+                            })
+                        }
+                        // App Hardening
+                        settings.appHardening?.let { ah ->
+                            put("app_hardening", JSONObject().apply {
+                                put("allow_background_switch", ah.allowBackgroundSwitch)
+                                put("allow_return_key", ah.allowReturnKey)
+                                put("allow_recent_apps", ah.allowRecentApps)
+                                put("force_full_screen", ah.forceFullScreen)
+                                put("hide_home_indicator", ah.hideHomeIndicator)
+                            })
+                        }
+                        // Network Restrictions
+                        settings.networkRestrictions?.let { nr ->
+                            put("network_restrictions", JSONObject().apply {
+                                put("allow_wifi", nr.allowWiFi)
+                                put("allow_bluetooth", nr.allowBluetooth)
+                                put("allow_mobile_data", nr.allowMobileData)
+                                put("proxy_address", nr.proxyAddress)
+                                put("allowed_wifi_ssids", JSONArray(nr.allowedWiFiSSIDs))
+                                put("blocked_ports", JSONArray(nr.blockedPorts))
+                            })
+                        }
+                    }
+                    CommandResult(true, result = settingsJson.toString())
+                } else {
+                    CommandResult(false, error = "未找到策略设置")
+                }
+            }
+
+            CMD_GET_WHITELIST -> {
+                val entries = appWhitelistManager.getWhitelist()
+                val jsonArray = JSONArray()
+                entries.forEach { entry ->
+                    jsonArray.put(JSONObject().apply {
+                        put("package_name", entry.packageName)
+                        put("app_name", entry.appName)
+                        put("auto_launch", entry.autoLaunch)
+                        put("allow_notifications", entry.allowNotifications)
+                        put("default_shortcut", entry.defaultShortcut)
+                    })
+                }
+                CommandResult(true, result = jsonArray.toString())
+            }
+
+            CMD_VALIDATE_PASSWORD -> {
+                val password = params.optString("password", "")
+                if (password.isNotEmpty()) {
+                    val isValid = securityPolicyManager.validatePassword(password)
+                    CommandResult(true, result = isValid.toString())
+                } else {
+                    CommandResult(false, error = "密码不能为空")
+                }
             }
 
             else -> {

@@ -314,6 +314,61 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
                 })
                 return CommandHandler.CommandResult(true, "正在下载更新")
             }
+
+            // 未实现的命令 - 已在 CommandHandler 中直接处理
+            override fun setRotation(rotation: Int): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "setRotation 未实现")
+
+            override fun wakeUp(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "wakeUp 未实现")
+
+            override fun sleep(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "sleep 未实现")
+
+            override fun playSound(url: String, loop: Boolean): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "playSound 未实现")
+
+            override fun stopSound(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "stopSound 未实现")
+
+            override fun speak(text: String, language: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "speak 未实现")
+
+            override fun goBack(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "goBack 未实现")
+
+            override fun goForward(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "goForward 未实现")
+
+            override fun executeJs(code: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "executeJs 未实现")
+
+            override fun setKioskMode(enabled: Boolean): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "setKioskMode 未实现")
+
+            override fun installApp(apkUrl: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "installApp 未实现")
+
+            override fun uninstallApp(packageName: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "uninstallApp 未实现")
+
+            override fun startApp(packageName: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "startApp 未实现")
+
+            override fun stopApp(packageName: String): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "stopApp 未实现")
+
+            override fun screenshot(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "screenshot 未实现")
+
+            override fun getLogs(lines: Int): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "getLogs 未实现")
+
+            override fun getWifiInfo(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "getWifiInfo 未实现")
+
+            override fun getDeviceInfo(): CommandHandler.CommandResult =
+                CommandHandler.CommandResult(false, error = "getDeviceInfo 未实现")
         }
     }
 

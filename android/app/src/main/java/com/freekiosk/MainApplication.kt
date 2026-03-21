@@ -7,6 +7,8 @@ import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.freekiosk.api.HttpServerPackage
+import com.freekiosk.security.SecurityPolicyPackage
+import com.freekiosk.security.AppWhitelistPackage
 import com.freekiosk.auth.AuthPackage
 import com.freekiosk.mqtt.MqttPackage
 import com.freekiosk.mqtt5.Mqtt5Package
@@ -37,6 +39,8 @@ class MainApplication : Application(), ReactApplication {
           add(PrintPackage())
           add(AccessibilityPackage())
           add(FilePickerPackage())
+          add(SecurityPolicyPackage())  // 安全策略模块
+          add(AppWhitelistPackage())     // 应用白名单模块
         },
     )
   }

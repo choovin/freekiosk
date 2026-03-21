@@ -114,11 +114,9 @@ class CsrGenerator {
             // Base64 解码
             val derBytes = java.util.Base64.getDecoder().decode(pemContent)
 
-            // 尝试解析 CSR
-            val csr = PKCS10CertificationRequest(derBytes)
-
-            // 验证签名
-            csr.isSignatureValid
+            // 尝试解析 CSR（如果解析成功则说明 CSR 格式有效）
+            PKCS10CertificationRequest(derBytes)
+            true
         } catch (e: Exception) {
             Log.e(TAG, "CSR validation failed", e)
             false

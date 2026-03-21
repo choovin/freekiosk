@@ -274,7 +274,7 @@ class MqttForegroundService : Service() {
 
         // 创建命令处理器
         commandExecutor?.let { executor ->
-            commandHandler = CommandHandler(mqttClient!!, executor)
+            commandHandler = CommandHandler(mqttClient!!, executor, applicationContext)
             Log.i(TAG, "命令处理器已初始化")
         } ?: run {
             Log.w(TAG, "未设置命令执行器，命令将无法被处理")
