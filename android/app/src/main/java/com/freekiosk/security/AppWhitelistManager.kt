@@ -3,6 +3,7 @@ package com.freekiosk.security
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -211,20 +212,33 @@ class AppWhitelistManager(private val context: Context) {
 
     /**
      * 验证应用签名
+     *
+     * 使用 PackageManager.GET_SIGNING_CERTIFICATES (API 28+) 进行签名验证。
+     * 如果设备 API 版本低于 28，则回退到已废弃的 GET_SIGNATURES。
      */
+    @Suppress("DEPRECATION")
     fun verifyAppSignature(packageName: String, expectedHash: String): Boolean {
         return try {
             val pm = context.packageManager
-            val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-            val signatures = packageInfo.signatures ?: return false
 
-            for (signature in signatures) {
-                val md = MessageDigest.getInstance("SHA-256")
-                val hash = md.digest(signature.toByteArray()).joinToString("") {
-                    "%02x".format(it)
-                }
-                if (hash == expectedHash) {
-                    return true
+            val signatures: Array<Signature>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                packageInfo.signingInfo?.signingCertificateHistory
+            } else {
+                val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+
+            if (signatures != null) {
+                for (signature in signatures) {
+                    val md = MessageDigest.getInstance("SHA-256")
+                    val hash = md.digest(signature.toByteArray()).joinToString("") {
+                        "%02x".format(it)
+                    }
+                    if (hash == expectedHash) {
+                        return true
+                    }
                 }
             }
             false
@@ -248,10 +262,19 @@ class AppWhitelistManager(private val context: Context) {
 
     /**
      * 启动应用（如果允许）
+     *
+     * @param packageName 要启动的应用包名
+     * @return 是否成功启动
      */
     fun launchAppIfAllowed(packageName: String): Boolean {
         if (!isAppAllowed(packageName)) {
             Log.w(TAG, "Launch blocked: $packageName not in whitelist")
+            return false
+        }
+
+        // 检查应用是否已安装
+        if (!isAppInstalled(packageName)) {
+            Log.w(TAG, "App not installed: $packageName")
             return false
         }
 
@@ -260,11 +283,15 @@ class AppWhitelistManager(private val context: Context) {
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
+                Log.i(TAG, "App launched: $packageName")
                 true
             } else {
-                Log.e(TAG, "No launch intent for $packageName")
+                Log.e(TAG, "No launch intent for $packageName (may not have launcher activity)")
                 false
             }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Security exception launching $packageName: ${e.message}")
+            false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch $packageName", e)
             false

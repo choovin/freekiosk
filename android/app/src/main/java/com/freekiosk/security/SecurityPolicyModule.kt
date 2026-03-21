@@ -75,6 +75,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
             val settings = securityPolicyManager.getCurrentSettings()
             if (settings != null) {
                 val result = Arguments.createMap().apply {
+                    putBoolean("exists", true)
                     // Password Policy
                     settings.passwordPolicy?.let { pp ->
                         val passwordPolicy = Arguments.createMap().apply {
@@ -150,7 +151,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取策略设置失败", e)
@@ -197,7 +198,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取密码策略失败", e)
@@ -223,7 +224,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取超时设置失败", e)
@@ -254,7 +255,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取系统加固设置失败", e)
@@ -281,7 +282,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取应用加固设置失败", e)
@@ -313,7 +314,7 @@ class SecurityPolicyModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } else {
-                promise.resolve(null)
+                promise.resolve(Arguments.createMap().apply { putBoolean("exists", false) })
             }
         } catch (e: Exception) {
             Log.e(TAG, "获取网络限制设置失败", e)

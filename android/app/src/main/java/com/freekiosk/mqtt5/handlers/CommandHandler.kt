@@ -286,38 +286,72 @@ class CommandHandler(
             // 安全策略命令
             CMD_UPDATE_POLICY -> {
                 val policyJson = params.optJSONObject("policy")
-                if (policyJson != null) {
-                    val success = securityPolicyManager.parsePolicyFromJson(policyJson)
-                    if (success) {
-                        CommandResult(true, result = "策略已更新")
-                    } else {
-                        CommandResult(false, error = "策略解析失败")
-                    }
-                } else {
+                if (policyJson == null) {
                     CommandResult(false, error = "策略数据不能为空")
+                } else {
+                    // 验证策略结构
+                    val settingsJson = policyJson.optJSONObject("settings")
+                    if (settingsJson == null) {
+                        CommandResult(false, error = "策略缺少 settings 字段")
+                    } else {
+                        val success = securityPolicyManager.parsePolicyFromJson(policyJson)
+                        if (success) {
+                            CommandResult(true, result = "策略已更新")
+                        } else {
+                            CommandResult(false, error = "策略解析失败，请检查 JSON 格式")
+                        }
+                    }
                 }
             }
 
             CMD_UPDATE_WHITELIST -> {
                 val whitelistJson = params.optJSONArray("whitelist")
-                if (whitelistJson != null) {
-                    val entries = mutableListOf<AppWhitelistManager.WhitelistEntry>()
-                    for (i in 0 until whitelistJson.length()) {
-                        val obj = whitelistJson.getJSONObject(i)
-                        entries.add(
-                            AppWhitelistManager.WhitelistEntry(
-                                packageName = obj.optString("package_name", ""),
-                                appName = obj.optString("app_name", ""),
-                                autoLaunch = obj.optBoolean("auto_launch", false),
-                                allowNotifications = obj.optBoolean("allow_notifications", false),
-                                defaultShortcut = obj.optBoolean("default_shortcut", false)
-                            )
-                        )
-                    }
-                    appWhitelistManager.setWhitelist(entries)
-                    CommandResult(true, result = "白名单已更新: ${entries.size} 个应用")
-                } else {
+                if (whitelistJson == null) {
                     CommandResult(false, error = "白名单数据不能为空")
+                } else if (whitelistJson.length() == 0) {
+                    // 空白名单视为清空
+                    appWhitelistManager.setWhitelist(emptyList())
+                    CommandResult(true, result = "白名单已清空")
+                } else {
+                    // 验证白名单条目
+                    var hasValidEntry = false
+                    val entries = mutableListOf<AppWhitelistManager.WhitelistEntry>()
+                    val errors = mutableListOf<String>()
+
+                    for (i in 0 until whitelistJson.length()) {
+                        try {
+                            val obj = whitelistJson.getJSONObject(i)
+                            val packageName = obj.optString("package_name", "")
+                            if (packageName.isEmpty()) {
+                                errors.add("第 ${i + 1} 条目缺少 package_name")
+                                continue
+                            }
+                            entries.add(
+                                AppWhitelistManager.WhitelistEntry(
+                                    packageName = packageName,
+                                    appName = obj.optString("app_name", ""),
+                                    autoLaunch = obj.optBoolean("auto_launch", false),
+                                    allowNotifications = obj.optBoolean("allow_notifications", false),
+                                    defaultShortcut = obj.optBoolean("default_shortcut", false)
+                                )
+                            )
+                            hasValidEntry = true
+                        } catch (e: Exception) {
+                            errors.add("第 ${i + 1} 条目格式错误: ${e.message}")
+                        }
+                    }
+
+                    if (!hasValidEntry && errors.isNotEmpty()) {
+                        CommandResult(false, error = "白名单验证失败: ${errors.joinToString("; ")}")
+                    } else {
+                        appWhitelistManager.setWhitelist(entries)
+                        val msg = if (errors.isNotEmpty()) {
+                            "白名单已部分更新 (${entries.size} 个应用)，警告: ${errors.joinToString("; ")}"
+                        } else {
+                            "白名单已更新: ${entries.size} 个应用"
+                        }
+                        CommandResult(true, result = msg)
+                    }
                 }
             }
 

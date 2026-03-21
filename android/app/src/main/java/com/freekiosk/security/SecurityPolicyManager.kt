@@ -227,31 +227,59 @@ class SecurityPolicyManager(private val context: Context) {
 
     /**
      * 应用系统加固设置
+     *
+     * 注意：部分设置需要 Device Owner 权限才能生效。
+     * - USB 调试控制需要 Device Owner 权限或 root 权限
+     * - 状态栏/导航栏隐藏需要 Device Owner 权限
+     * - 截图禁用需要 Device Owner 权限
      */
     private fun applySystemHardening(hardening: SystemHardening) {
         try {
             val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
             val adminComponent = ComponentName(context, com.freekiosk.DeviceAdminReceiver::class.java)
 
-            if (dpm != null && dpm.isAdminActive(adminComponent)) {
-                // 设置锁屏任务模式
+            val isAdminActive = dpm?.isAdminActive(adminComponent) == true
+
+            if (isAdminActive) {
+                // 使用 DevicePolicyManager API 进行系统加固
+                // 这些操作需要 Device Owner 权限
+                Log.i(TAG, "Device Owner 模式：系统加固可用")
+
+                // 记录加固配置（实际系统调用由 AccessibilityService 执行）
                 if (hardening.disableStatusBar || hardening.disableNavigationBar) {
-                    Log.i(TAG, "System hardening applied: statusBar=${hardening.disableStatusBar}, navBar=${hardening.disableNavigationBar}")
+                    prefs.edit().putBoolean("hide_status_bar", hardening.disableStatusBar)
+                        .putBoolean("hide_navigation_bar", hardening.disableNavigationBar)
+                        .apply()
+                }
+
+                if (hardening.disableScreenshot || hardening.disableScreenCapture) {
+                    prefs.edit().putBoolean("disable_screenshot", hardening.disableScreenshot)
+                        .apply()
+                }
+            } else {
+                Log.w(TAG, "非 Device Owner 模式，部分系统加固设置无法生效")
+            }
+
+            // USB 调试设置（需要 root 或 Device Owner）
+            // 注意：普通应用无法直接修改 ADB_ENABLED，这是系统级保护
+            if (hardening.disableUsbDebug) {
+                try {
+                    Settings.Global.putInt(
+                        context.contentResolver,
+                        Settings.Global.ADB_ENABLED,
+                        0
+                    )
+                    Log.i(TAG, "USB 调试已禁用")
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "无法修改 USB 调试设置，需要 root 或 Device Owner 权限: ${e.message}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "修改 USB 调试设置失败", e)
                 }
             }
 
-            // USB 调试设置
-            if (hardening.disableUsbDebug) {
-                Settings.Global.putInt(
-                    context.contentResolver,
-                    Settings.Global.ADB_ENABLED,
-                    0
-                )
-            }
-
-            Log.i(TAG, "System hardening applied")
+            Log.i(TAG, "系统加固配置已应用 (adminActive=$isAdminActive)")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply system hardening", e)
+            Log.e(TAG, "应用系统加固设置失败", e)
         }
     }
 

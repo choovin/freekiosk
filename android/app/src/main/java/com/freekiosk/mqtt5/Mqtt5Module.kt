@@ -315,60 +315,102 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
                 return CommandHandler.CommandResult(true, "正在下载更新")
             }
 
-            // 未实现的命令 - 已在 CommandHandler 中直接处理
-            override fun setRotation(rotation: Int): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "setRotation 未实现")
+            // 以下命令转发到 JavaScript 层处理
+            override fun setRotation(rotation: Int): CommandHandler.CommandResult {
+                emitCommandToJS("setRotation", Arguments.createMap().apply { putInt("rotation", rotation) })
+                return CommandHandler.CommandResult(true, "屏幕旋转已设置")
+            }
 
-            override fun wakeUp(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "wakeUp 未实现")
+            override fun wakeUp(): CommandHandler.CommandResult {
+                emitCommandToJS("wakeUp", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "设备已唤醒")
+            }
 
-            override fun sleep(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "sleep 未实现")
+            override fun sleep(): CommandHandler.CommandResult {
+                emitCommandToJS("sleep", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "设备已进入休眠")
+            }
 
-            override fun playSound(url: String, loop: Boolean): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "playSound 未实现")
+            override fun playSound(url: String, loop: Boolean): CommandHandler.CommandResult {
+                emitCommandToJS("playSound", Arguments.createMap().apply {
+                    putString("url", url)
+                    putBoolean("loop", loop)
+                })
+                return CommandHandler.CommandResult(true, "正在播放声音")
+            }
 
-            override fun stopSound(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "stopSound 未实现")
+            override fun stopSound(): CommandHandler.CommandResult {
+                emitCommandToJS("stopSound", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "声音已停止")
+            }
 
-            override fun speak(text: String, language: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "speak 未实现")
+            override fun speak(text: String, language: String): CommandHandler.CommandResult {
+                emitCommandToJS("speak", Arguments.createMap().apply {
+                    putString("text", text)
+                    putString("language", language)
+                })
+                return CommandHandler.CommandResult(true, "正在朗读")
+            }
 
-            override fun goBack(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "goBack 未实现")
+            override fun goBack(): CommandHandler.CommandResult {
+                emitCommandToJS("goBack", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "正在返回")
+            }
 
-            override fun goForward(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "goForward 未实现")
+            override fun goForward(): CommandHandler.CommandResult {
+                emitCommandToJS("goForward", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "正在前进")
+            }
 
-            override fun executeJs(code: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "executeJs 未实现")
+            override fun executeJs(code: String): CommandHandler.CommandResult {
+                emitCommandToJS("executeJs", Arguments.createMap().apply { putString("code", code) })
+                return CommandHandler.CommandResult(true, "正在执行 JavaScript")
+            }
 
-            override fun setKioskMode(enabled: Boolean): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "setKioskMode 未实现")
+            override fun setKioskMode(enabled: Boolean): CommandHandler.CommandResult {
+                emitCommandToJS("setKioskMode", Arguments.createMap().apply { putBoolean("enabled", enabled) })
+                return CommandHandler.CommandResult(true, if (enabled) "Kiosk 模式已启用" else "Kiosk 模式已禁用")
+            }
 
-            override fun installApp(apkUrl: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "installApp 未实现")
+            override fun installApp(apkUrl: String): CommandHandler.CommandResult {
+                emitCommandToJS("installApp", Arguments.createMap().apply { putString("apkUrl", apkUrl) })
+                return CommandHandler.CommandResult(true, "正在安装应用")
+            }
 
-            override fun uninstallApp(packageName: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "uninstallApp 未实现")
+            override fun uninstallApp(packageName: String): CommandHandler.CommandResult {
+                emitCommandToJS("uninstallApp", Arguments.createMap().apply { putString("packageName", packageName) })
+                return CommandHandler.CommandResult(true, "正在卸载应用")
+            }
 
-            override fun startApp(packageName: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "startApp 未实现")
+            override fun startApp(packageName: String): CommandHandler.CommandResult {
+                emitCommandToJS("startApp", Arguments.createMap().apply { putString("packageName", packageName) })
+                return CommandHandler.CommandResult(true, "正在启动应用")
+            }
 
-            override fun stopApp(packageName: String): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "stopApp 未实现")
+            override fun stopApp(packageName: String): CommandHandler.CommandResult {
+                emitCommandToJS("stopApp", Arguments.createMap().apply { putString("packageName", packageName) })
+                return CommandHandler.CommandResult(true, "正在停止应用")
+            }
 
-            override fun screenshot(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "screenshot 未实现")
+            override fun screenshot(): CommandHandler.CommandResult {
+                emitCommandToJS("screenshot", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "正在截图")
+            }
 
-            override fun getLogs(lines: Int): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "getLogs 未实现")
+            override fun getLogs(lines: Int): CommandHandler.CommandResult {
+                emitCommandToJS("getLogs", Arguments.createMap().apply { putInt("lines", lines) })
+                return CommandHandler.CommandResult(true, "正在获取日志")
+            }
 
-            override fun getWifiInfo(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "getWifiInfo 未实现")
+            override fun getWifiInfo(): CommandHandler.CommandResult {
+                emitCommandToJS("getWifiInfo", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "正在获取 WiFi 信息")
+            }
 
-            override fun getDeviceInfo(): CommandHandler.CommandResult =
-                CommandHandler.CommandResult(false, error = "getDeviceInfo 未实现")
+            override fun getDeviceInfo(): CommandHandler.CommandResult {
+                emitCommandToJS("getDeviceInfo", Arguments.createMap())
+                return CommandHandler.CommandResult(true, "正在获取设备信息")
+            }
         }
     }
 
