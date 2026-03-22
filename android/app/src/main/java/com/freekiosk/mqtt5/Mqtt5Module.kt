@@ -118,6 +118,8 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
                 tenantId = tenantId,
                 deviceId = deviceId,
                 useTls = if (configMap.hasKey("useTls")) configMap.getBoolean("useTls") else false,
+                username = if (configMap.hasKey("mqttUsername")) configMap.getString("mqttUsername") else "sailfish",
+                password = if (configMap.hasKey("mqttPassword")) configMap.getString("mqttPassword") else "sailfish020",
                 jwtToken = if (configMap.hasKey("jwtToken")) configMap.getString("jwtToken") else null,
                 accessToken = accessToken,
                 deviceKey = deviceKey,
@@ -410,6 +412,11 @@ class Mqtt5Module(private val reactContext: ReactApplicationContext) :
             override fun getDeviceInfo(): CommandHandler.CommandResult {
                 emitCommandToJS("getDeviceInfo", Arguments.createMap())
                 return CommandHandler.CommandResult(true, "正在获取设备信息")
+            }
+
+            override fun setPin(pin: String): CommandHandler.CommandResult {
+                emitCommandToJS("setPin", Arguments.createMap().apply { putString("pin", pin) })
+                return CommandHandler.CommandResult(true, "PIN 已更新")
             }
         }
     }

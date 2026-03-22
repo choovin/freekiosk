@@ -32,6 +32,7 @@
 
 import { NativeModules, NativeEventEmitter, Platform, EmitterSubscription } from 'react-native';
 import DeviceControlService from './DeviceControlService';
+import { saveSecurePin } from '../utils/secureStorage';
 
 const { Mqtt5Module } = NativeModules;
 
@@ -203,6 +204,20 @@ class Mqtt5ServiceClass {
           // 更新应用
           console.log(`[Mqtt5Service] 收到更新命令: ${params.apkUrl}`);
           // TODO: 调用 UpdateModule
+          break;
+
+        case 'setPin':
+          // 设置 PIN 码
+          if (params.pin && params.pin.length === 4 && /^\d+$/.test(params.pin)) {
+            const success = await saveSecurePin(params.pin);
+            if (success) {
+              console.log(`[Mqtt5Service] PIN 已更新为 ${params.pin}`);
+            } else {
+              console.error(`[Mqtt5Service] PIN 更新失败`);
+            }
+          } else {
+            console.warn(`[Mqtt5Service] PIN 格式错误: ${params.pin}`);
+          }
           break;
 
         default:

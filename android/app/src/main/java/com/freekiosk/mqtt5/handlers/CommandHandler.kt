@@ -73,6 +73,9 @@ class CommandHandler(
         const val CMD_GET_POLICY = "getPolicy"
         const val CMD_GET_WHITELIST = "getWhitelist"
         const val CMD_VALIDATE_PASSWORD = "validatePassword"
+
+        // PIN 管理命令
+        const val CMD_SET_PIN = "setPin"
     }
 
     // 安全策略管理器
@@ -448,6 +451,15 @@ class CommandHandler(
                 }
             }
 
+            CMD_SET_PIN -> {
+                val pin = params.optString("pin", "")
+                if (pin.isNotEmpty() && pin.length == 4 && pin.all { it.isDigit() }) {
+                    commandExecutor.setPin(pin)
+                } else {
+                    CommandResult(false, error = "PIN 必须为4位数字")
+                }
+            }
+
             else -> {
                 Log.w(TAG, "未知命令类型: $type")
                 CommandResult(false, error = "未知命令类型: $type")
@@ -528,6 +540,9 @@ class CommandHandler(
         fun getLogs(lines: Int = 100): CommandResult
         fun getWifiInfo(): CommandResult
         fun getDeviceInfo(): CommandResult
+
+        // PIN 管理
+        fun setPin(pin: String): CommandResult
     }
 
     /**
