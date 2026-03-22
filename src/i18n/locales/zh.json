@@ -7,7 +7,8 @@
     "display": "显示",
     "security": "安全",
     "advanced": "高级",
-    "dashboard": "仪表板"
+    "dashboard": "仪表板",
+    "fieldtrip": "研学"
   },
   "general": {
     "title": "通用设置",
@@ -375,5 +376,30 @@
     "backupRestored": "备份已恢复",
     "certificateInstalled": "证书已安装",
     "certificateRemoved": "证书已删除"
+  },
+  "fieldtrip": {
+    "hubConnection": "Hub连接状态",
+    "deviceInfo": "设备信息",
+    "gpsStatus": "GPS状态",
+    "actions": "操作",
+    "status": "状态",
+    "configuredStatus": "已配置",
+    "notConfiguredStatus": "未配置",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "notConfigured": "未配置研学模式",
+    "notConfiguredDesc": "此设备尚未绑定到研学Hub。请在首次设置时扫描二维码进行绑定。",
+    "goToOnboarding": "前往绑定",
+    "rebind": "重新绑定",
+    "rebindTitle": "重新绑定设备",
+    "rebindConfirm": "这将清除当前配置并跳转到绑定页面。您可以扫描新的二维码来绑定到新的Hub。",
+    "exitFieldTrip": "退出研学模式",
+    "exitTitle": "退出研学模式",
+    "exitConfirm": "这将停止GPS定位并退出研学模式。设备将恢复到标准Kiosk模式。",
+    "exit": "退出",
+    "gpsReporting": "GPS定位",
+    "gpsEnabled": "已启用",
+    "gpsDisabled": "已停止",
+    "gpsDashboardHint": "GPS 位置请在 Hub 管理后台查看"
   }
 }

@@ -39,6 +39,7 @@ import {
   SecurityTab,
   AdvancedTab,
   DashboardTab,
+  FieldTripTab,
 } from './tabs';
 import { RecurringEventEditor, OneTimeEventEditor } from '../../components/settings';
 import ScreenScheduleRuleEditor from '../../components/settings/ScreenScheduleRuleEditor';
@@ -67,6 +68,7 @@ const TABS = (t: any) => [
   { id: 'display', label: t('tabs.display'), icon: 'monitor' },
   { id: 'security', label: t('tabs.security'), icon: 'shield-lock' },
   { id: 'advanced', label: t('tabs.advanced'), icon: 'cog' },
+  { id: 'fieldtrip', label: t('tabs.fieldtrip'), icon: 'map-marker-radius' },
 ];
 
 const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
@@ -1771,7 +1773,10 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
             onRestoreComplete={loadSettings}
           />
         );
-      
+
+      case 'fieldtrip':
+        return <FieldTripTab navigation={navigation} />;
+
       default:
         return null;
     }

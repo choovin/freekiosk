@@ -166,7 +166,14 @@ export type IconName =
   | 'server'
   | 'remote'
   | 'numeric'
-  | 'home-assistant';
+  | 'home-assistant'
+  // QR & Group
+  | 'account-group'
+  | 'qrcode-scan'
+  | 'qrcode'
+  // Location & Field Trip
+  | 'map-marker-radius'
+  | 'map-marker';
 
 interface IconProps {
   name: IconName;

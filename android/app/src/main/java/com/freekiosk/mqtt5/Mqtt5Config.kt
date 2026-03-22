@@ -39,10 +39,12 @@ data class Mqtt5Config(
     val useTls: Boolean = false,
 
     // 认证配置
-    val jwtToken: String? = null,
+    val username: String? = null,          // MQTT 用户名 (默认: sailfish)
+    val password: String? = null,          // MQTT 密码 (默认: sailfish020)
+    val jwtToken: String? = null,          // JWT 认证令牌 (可选)
     val accessToken: String? = null,       // 企业版: JWT Access Token
-    val refreshToken: String? = null,      // 企业版: JWT Refresh Token
-    val deviceKey: String? = null,         // 企业版: 设备唯一标识键
+    val refreshToken: String? = null,       // 企业版: JWT Refresh Token
+    val deviceKey: String? = null,          // 企业版: 设备唯一标识键
     val clientCertPath: String? = null,
     val clientKeyPath: String? = null,
 

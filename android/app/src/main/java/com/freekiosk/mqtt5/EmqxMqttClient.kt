@@ -207,17 +207,31 @@ class EmqxMqttClient(
                 .build()
         )
 
-        // 配置 JWT 认证
-        // 优先使用 accessToken (企业版)，其次使用 jwtToken (旧版)
-        val tokenToUse = config.accessToken ?: config.jwtToken
-        tokenToUse?.let { token ->
+        // 配置认证
+        // 优先级: username/password (MQTT基本认证) > JWT (企业版)
+        val username = config.username
+        val password = config.password
+        if (username != null && password != null) {
+            // 使用 MQTT 用户名密码认证
             connectBuilder.simpleAuth(
                 Mqtt5SimpleAuth.builder()
-                    .username("jwt")
-                    .password(token.toByteArray())
+                    .username(username)
+                    .password(password.toByteArray())
                     .build()
             )
-            Log.d(TAG, "JWT 认证已配置")
+            Log.d(TAG, "MQTT 基本认证已配置: $username")
+        } else {
+            // 降级到 JWT 认证
+            val tokenToUse = config.accessToken ?: config.jwtToken
+            tokenToUse?.let { token ->
+                connectBuilder.simpleAuth(
+                    Mqtt5SimpleAuth.builder()
+                        .username("jwt")
+                        .password(token.toByteArray())
+                        .build()
+                )
+                Log.d(TAG, "JWT 认证已配置")
+            }
         }
 
         // 配置 LWT (Last Will and Testament) - 离线时自动发布

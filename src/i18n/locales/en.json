@@ -7,7 +7,8 @@
     "display": "Display",
     "security": "Security",
     "advanced": "Advanced",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "fieldtrip": "Field Trip"
   },
   "general": {
     "title": "General Settings",
@@ -375,5 +376,30 @@
     "backupRestored": "Backup restored",
     "certificateInstalled": "Certificate installed",
     "certificateRemoved": "Certificate removed"
+  },
+  "fieldtrip": {
+    "hubConnection": "Hub Connection",
+    "deviceInfo": "Device Information",
+    "gpsStatus": "GPS Status",
+    "actions": "Actions",
+    "status": "Status",
+    "configuredStatus": "Configured",
+    "notConfiguredStatus": "Not Configured",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "notConfigured": "Not Configured",
+    "notConfiguredDesc": "This device is not bound to a Field Trip Hub. Please scan a QR code during initial setup to bind.",
+    "goToOnboarding": "Go to Binding",
+    "rebind": "Rebind",
+    "rebindTitle": "Rebind Device",
+    "rebindConfirm": "This will clear the current configuration and navigate to the binding page. You can scan a new QR code to bind to a new Hub.",
+    "exitFieldTrip": "Exit Field Trip Mode",
+    "exitTitle": "Exit Field Trip Mode",
+    "exitConfirm": "This will stop GPS reporting and exit Field Trip mode. The device will return to standard Kiosk mode.",
+    "exit": "Exit",
+    "gpsReporting": "GPS Reporting",
+    "gpsEnabled": "Enabled",
+    "gpsDisabled": "Disabled",
+    "gpsDashboardHint": "GPS location viewable on Hub dashboard"
   }
 }
