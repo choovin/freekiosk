@@ -42,6 +42,7 @@ class MainApplication : Application(), ReactApplication {
           add(SecurityPolicyPackage())  // 安全策略模块
           add(AppWhitelistPackage())     // 应用白名单模块
           add(QrScannerPackage())       // QR 扫描模块
+          add(HubConfigPackage())       // Hub 配置模块（研学版）
         },
     )
   }

@@ -210,10 +210,9 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
 
             val reportUrl = "$hubUrl/api/v2/fieldtrip/devices/$deviceId/location"
             val body = JSONObject().apply {
-                put("latitude", location.latitude)
-                put("longitude", location.longitude)
+                put("lat", location.latitude)
+                put("lng", location.longitude)
                 put("accuracy", location.accuracy.toDouble())
-                put("altitude", location.altitude)
                 put("timestamp", System.currentTimeMillis())
             }.toString()
 
