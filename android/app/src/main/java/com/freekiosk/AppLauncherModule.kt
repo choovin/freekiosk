@@ -23,6 +23,14 @@ class AppLauncherModule(reactContext: ReactApplicationContext) : ReactContextBas
     @ReactMethod
     fun launchExternalApp(packageName: String, promise: Promise) {
         try {
+            // Check Hub whitelist before launching
+            val appWhitelistManager = AppWhitelistManager(reactApplicationContext)
+            if (!appWhitelistManager.isAppAllowed(packageName)) {
+                DebugLog.d("AppLauncherModule", "Launch blocked by Hub whitelist: $packageName")
+                promise.reject("APP_NOT_ALLOWED", "This app is not allowed for this activity")
+                return
+            }
+
             val pm = reactApplicationContext.packageManager
             val launchIntent = pm.getLaunchIntentForPackage(packageName)
 

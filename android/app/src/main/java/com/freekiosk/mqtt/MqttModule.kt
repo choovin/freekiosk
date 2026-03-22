@@ -321,6 +321,22 @@ class MqttModule(private val reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Set the fieldtrip group ID for broadcast subscriptions.
+     * Should be called after the device binds to a Hub group.
+     */
+    @ReactMethod
+    fun setGroupId(groupId: String, promise: Promise) {
+        try {
+            mqttClient?.setGroupId(groupId)
+            Log.i(TAG, "Fieldtrip groupId set to: $groupId")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set groupId", e)
+            promise.reject("SET_GROUP_ID_ERROR", e.message)
+        }
+    }
+
+    /**
      * Check whether the MQTT client is currently connected.
      */
     @ReactMethod

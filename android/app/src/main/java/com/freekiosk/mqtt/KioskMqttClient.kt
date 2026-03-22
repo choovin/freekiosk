@@ -1,6 +1,8 @@
 package com.freekiosk.mqtt
 
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -11,6 +13,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import com.freekiosk.BroadcastOverlayActivity
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
@@ -94,6 +97,14 @@ class KioskMqttClient(
 
     /** Network callback for instant reconnect when WiFi comes back. */
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    /** Fieldtrip group ID for broadcast subscriptions. */
+    private var groupId: String? = null
+
+    /** SharedPreferences for Hub config (group_id and whitelist). */
+    private val hubPrefs: SharedPreferences by lazy {
+        context.getSharedPreferences("HubConfig", Context.MODE_PRIVATE)
+    }
 
     /**
      * Acquire WifiLock + WakeLock to keep MQTT alive when screen is off.
@@ -458,10 +469,17 @@ class KioskMqttClient(
             subscribeToCommands()
         }
 
-        // 4. Start periodic status publishing
+        // 4. Subscribe to fieldtrip broadcast if groupId is available
+        val savedGroupId = groupId ?: hubPrefs.getString("group_id", null)
+        if (savedGroupId != null && savedGroupId.isNotBlank()) {
+            groupId = savedGroupId
+            subscribeToFieldtripBroadcast()
+        }
+
+        // 5. Start periodic status publishing
         startStatusPublishing()
 
-        // 5. Notify connection state change on main thread
+        // 6. Notify connection state change on main thread
         mainHandler.post {
             onConnectionChanged?.invoke(true)
         }
@@ -541,6 +559,81 @@ class KioskMqttClient(
             return
         }
         publish(stateTopic, statusJson.toString(), qos = 0, retained = true)
+    }
+
+    /**
+     * Set the fieldtrip group ID and (re)subscribe to the broadcast topic.
+     * Call this after the device binds to a Hub group.
+     * If already connected, subscribes immediately; otherwise it will be called on next connect.
+     */
+    fun setGroupId(id: String) {
+        groupId = id
+        Log.i(TAG, "Fieldtrip groupId set to: $id")
+        // Persist to HubConfig prefs
+        hubPrefs.edit().putString("group_id", id).apply()
+        // If connected, subscribe immediately
+        if (_isConnected && id.isNotBlank()) {
+            subscribeToFieldtripBroadcast()
+        }
+    }
+
+    /**
+     * Get the current fieldtrip group ID (may be null if not bound to a Hub).
+     */
+    fun getGroupId(): String? = groupId
+
+    /**
+     * Subscribe to the fieldtrip broadcast topic for this group.
+     */
+    private fun subscribeToFieldtripBroadcast() {
+        val gid = groupId ?: return
+        if (gid.isBlank()) return
+        val topic = "fieldtrip/$gid/broadcast"
+        try {
+            mqttClient?.subscribeWith()
+                ?.topicFilter(topic)
+                ?.qos(MqttQos.AT_LEAST_ONCE)
+                ?.callback { publish ->
+                    val payload = String(publish.payloadAsBytes)
+                    handleBroadcastMessage(payload)
+                }
+                ?.send()
+                ?.whenComplete { _, throwable ->
+                    if (throwable != null) {
+                        Log.e(TAG, "Failed to subscribe to broadcast: ${throwable.message}")
+                    } else {
+                        Log.i(TAG, "Subscribed to broadcast: $topic")
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error subscribing to broadcast: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Handle an incoming fieldtrip broadcast message.
+     * Launches BroadcastOverlayActivity to display the message.
+     */
+    private fun handleBroadcastMessage(message: String) {
+        try {
+            val json = JSONObject(message)
+            val text = json.getString("message")
+            val sound = json.optString("sound", "default")
+            Log.i(TAG, "Broadcast message received: $text")
+            mainHandler.post {
+                try {
+                    val intent = android.content.Intent(context, BroadcastOverlayActivity::class.java)
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent.putExtra("message", text)
+                    intent.putExtra("sound", sound)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to launch BroadcastOverlayActivity: ${e.message}", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Malformed broadcast message ignored: $message")
+        }
     }
 
     // ==================== Periodic status publishing ====================
