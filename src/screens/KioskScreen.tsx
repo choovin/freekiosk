@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Text, NativeEventEmitter, NativeModules, AppState, DeviceEventEmitter, Dimensions, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Text, NativeEventEmitter, NativeModules, AppState, DeviceEventEmitter, Dimensions, Pressable, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import WebViewComponent, { WebViewComponentRef } from '../components/WebViewComponent';
@@ -27,7 +27,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import Icon from '../components/Icon';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const { HttpServerModule } = NativeModules;
+const { HttpServerModule, HubConfigModule } = NativeModules;
 
 // Helper function to set brightness (replaces react-native-brightness-newarch)
 const setBrightnessLevel = async (level: number) => {
@@ -147,7 +147,11 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   // Keep Screen On setting
   const [keepScreenOn, setKeepScreenOn] = useState<boolean>(true);
   const keepScreenOnRef = useRef<boolean>(true);
-  
+
+  // Field Trip mode states
+  const [hubConfig, setHubConfig] = useState<{hubUrl: string; deviceId: string; groupId: string; groupName: string; deviceName: string} | null>(null);
+  const [isFieldTripMode, setIsFieldTripMode] = useState(false);
+
   // Inactivity Return to Home states
   const [inactivityReturnEnabled, setInactivityReturnEnabled] = useState<boolean>(false);
   const [inactivityReturnDelay, setInactivityReturnDelay] = useState<number>(60); // seconds
@@ -156,6 +160,32 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
   const [inactivityReturnScrollTop, setInactivityReturnScrollTop] = useState<boolean>(true);
   const inactivityReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentWebViewUrlRef = useRef<string>(''); // Track current WebView URL for return logic
+
+  // Field Trip mode - load hub config periodically
+  const loadHubConfig = async () => {
+    try {
+      const config = await HubConfigModule.getConfig();
+      setHubConfig(config);
+      setIsFieldTripMode(!!(config && config.deviceId && config.groupId));
+    } catch (e) {
+      // Hub config not available, ignore
+    }
+  };
+
+  useEffect(() => {
+    loadHubConfig();
+    const interval = setInterval(loadHubConfig, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Field Trip help action
+  const showFieldTripHelp = () => {
+    Alert.alert(
+      '研学版帮助',
+      `分组: ${hubConfig?.groupName || hubConfig?.groupId}\n设备: ${hubConfig?.deviceName || '平板-' + (hubConfig?.deviceId?.slice(-6) || '-')}\n\n如需帮助，请联系教师`,
+      [{ text: '确定' }]
+    );
+  };
 
   // Track focus transitions (true→false) to avoid false cleanup triggers
   const prevIsFocusedRef = useRef<boolean>(true);
@@ -2145,6 +2175,17 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {isFieldTripMode && (
+        <View style={styles.fieldTripStatusBar}>
+          <Text style={styles.fieldTripStatusText}>
+            🎓 {hubConfig?.groupName || hubConfig?.groupId}  ● {hubConfig?.deviceName || '平板-' + (hubConfig?.deviceId?.slice(-6) || '')}  📍 GPS 开启  [?]
+          </Text>
+          <View style={styles.fieldTripGpsIndicator} />
+          <TouchableOpacity onPress={showFieldTripHelp} style={styles.fieldTripHelpButton}>
+            <Text style={styles.fieldTripHelpText}>?</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {displayMode === 'webview' ? (
         <>
           {(statusBarEnabled || dashboardModeEnabled) && (
@@ -2329,6 +2370,34 @@ const KioskScreen: React.FC<KioskScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  fieldTripStatusBar: {
+    height: 32,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    backdropFilter: 'blur(10px)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  fieldTripStatusText: {
+    color: 'white',
+    fontSize: 12,
+    flex: 1,
+  },
+  fieldTripGpsIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+    marginRight: 8,
+  },
+  fieldTripHelpButton: {
+    paddingHorizontal: 8,
+  },
+  fieldTripHelpText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   visualIndicator: {
     position: 'absolute',

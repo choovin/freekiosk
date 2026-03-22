@@ -22,6 +22,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_API_KEY = "api_key"
         private const val KEY_GROUP_ID = "group_id"
+        private const val KEY_GROUP_NAME = "group_name"
+        private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_SIGNING_PUBKEY = "signing_pubkey"
         private const val KEY_BROADCAST_SOUND = "broadcast_sound"
         private const val KEY_UPDATE_POLICY = "update_policy"
@@ -47,6 +49,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
             val hubUrl = prefs?.getString(KEY_HUB_URL, "") ?: ""
             val deviceId = prefs?.getString(KEY_DEVICE_ID, "") ?: ""
             val groupId = prefs?.getString(KEY_GROUP_ID, "") ?: ""
+            val groupName = prefs?.getString(KEY_GROUP_NAME, "") ?: ""
+            val deviceName = prefs?.getString(KEY_DEVICE_NAME, "") ?: ""
 
             if (hubUrl.isEmpty() || deviceId.isEmpty()) {
                 promise.resolve(null)
@@ -57,6 +61,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                 putString("hubUrl", hubUrl)
                 putString("deviceId", deviceId)
                 putString("groupId", groupId)
+                putString("groupName", groupName)
+                putString("deviceName", deviceName)
             }
             promise.resolve(result)
         } catch (e: Exception) {
@@ -98,6 +104,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                 if (response != null) {
                     val responseJson = JSONObject(response)
                     val groupId = responseJson.optString("group_id", "")
+                    val groupName = responseJson.optString("group_name", "")
+                    val deviceName = responseJson.optString("device_name", "")
                     val signingPubkey = responseJson.optString("signing_pubkey", "")
                     val broadcastSound = responseJson.optString("broadcast_sound", "default")
                     val updatePolicy = responseJson.optString("update_policy", "auto")
@@ -105,6 +113,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                     // Store full config
                     prefs?.edit()
                         ?.putString(KEY_GROUP_ID, groupId)
+                        ?.putString(KEY_GROUP_NAME, groupName)
+                        ?.putString(KEY_DEVICE_NAME, deviceName)
                         ?.putString(KEY_SIGNING_PUBKEY, signingPubkey)
                         ?.putString(KEY_BROADCAST_SOUND, broadcastSound)
                         ?.putString(KEY_UPDATE_POLICY, updatePolicy)
@@ -113,6 +123,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                     val result = Arguments.createMap().apply {
                         putString("deviceId", deviceId)
                         putString("groupId", groupId)
+                        putString("groupName", groupName)
+                        putString("deviceName", deviceName)
                         putString("hubUrl", hubUrl)
                         putString("signingPubkey", signingPubkey)
                         putString("broadcastSound", broadcastSound)
