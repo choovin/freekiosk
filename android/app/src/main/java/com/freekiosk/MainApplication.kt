@@ -41,6 +41,7 @@ class MainApplication : Application(), ReactApplication {
           add(FilePickerPackage())
           add(SecurityPolicyPackage())  // 安全策略模块
           add(AppWhitelistPackage())     // 应用白名单模块
+          add(QrScannerPackage())       // QR 扫描模块
         },
     )
   }
