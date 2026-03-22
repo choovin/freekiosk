@@ -4,6 +4,10 @@ import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import org.json.JSONArray
 import android.util.Log
+import android.content.Context
+import android.content.SharedPreferences
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * FreeKiosk REST API Server
@@ -16,13 +20,18 @@ class KioskHttpServer(
     private val statusProvider: () -> JSONObject,
     private val commandHandler: (String, JSONObject?) -> JSONObject,
     private val screenshotProvider: (() -> java.io.InputStream?)? = null,
-    private val cameraPhotoProvider: ((camera: String, quality: Int) -> java.io.InputStream?)? = null
+    private val cameraPhotoProvider: ((camera: String, quality: Int) -> java.io.InputStream?)? = null,
+    private val context: Context? = null
 ) : NanoHTTPD(port) {
 
     companion object {
         private const val TAG = "KioskHttpServer"
         private const val MIME_JSON = "application/json"
+        private const val PREFS_NAME = "HubConfig"
     }
+
+    private val hubConfigPrefs: SharedPreferences?
+        get() = context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
@@ -125,8 +134,19 @@ class KioskHttpServer(
                 method == Method.GET && uri in listOf(
                     "/api/brightness", "/api/url", "/api/navigate", "/api/tts",
                     "/api/toast", "/api/app/launch", "/api/js", "/api/audio/play",
-                    "/api/remote/text"
+                    "/api/remote/text", "/api/bind", "/api/location", "/api/commands",
+                    "/api/app_whitelist"
                 ) -> jsonError(Response.Status.METHOD_NOT_ALLOWED, "This endpoint requires POST with a JSON body")
+
+                // Field Trip endpoints (POST only)
+                method == Method.POST && uri == "/api/bind" -> handleBind(session)
+                method == Method.POST && uri == "/api/location" -> handleLocation(session)
+                method == Method.POST && uri == "/api/commands" -> handleCommands(session)
+                method == Method.POST && uri == "/api/app_whitelist" -> handleAppWhitelistPost(session)
+
+                // Field Trip endpoints (GET only)
+                method == Method.GET && uri == "/api/app_whitelist" -> handleAppWhitelistGet()
+                method == Method.GET && uri == "/api/commands" -> handleCommandsGet(session)
 
                 else -> jsonError(Response.Status.NOT_FOUND, "Endpoint not found")
             }
@@ -582,6 +602,283 @@ class KioskHttpServer(
     private fun handleCameraList(): Response {
         val result = commandHandler("cameraList", null)
         return jsonSuccess(result)
+    }
+
+    // ==================== Field Trip Handlers ====================
+
+    /**
+     * POST /api/bind - Register tablet with Hub after QR scan
+     * Request: {device_id, group_key, api_key, hub_url}
+     * Forwards to Hub's /api/v2/fieldtrip/devices/bind and stores response
+     */
+    private fun handleBind(session: IHTTPSession): Response {
+        val body = parseBody(session) ?: return jsonError(Response.Status.BAD_REQUEST, "Request body is required")
+        val deviceId = body.optString("device_id", "")
+        val groupKey = body.optString("group_key", "")
+        val apiKey = body.optString("api_key", "")
+        val hubUrl = body.optString("hub_url", "")
+
+        if (deviceId.isEmpty() || groupKey.isEmpty() || apiKey.isEmpty() || hubUrl.isEmpty()) {
+            return jsonError(Response.Status.BAD_REQUEST, "device_id, group_key, api_key, and hub_url are required")
+        }
+
+        // Forward to Hub
+        val hubBindUrl = "${hubUrl.trimEnd('/')}/api/v2/fieldtrip/devices/bind"
+        val requestBody = JSONObject().apply {
+            put("device_id", deviceId)
+            put("group_key", groupKey)
+            put("api_key", apiKey)
+        }
+
+        val hubResponse = forwardToHub(hubBindUrl, requestBody, null)
+        if (hubResponse == null) {
+            return jsonError(Response.Status.SERVICE_UNAVAILABLE, "Failed to connect to Hub")
+        }
+
+        // Check if Hub returned an error
+        if (hubResponse.optBoolean("error", false)) {
+            return jsonError(Response.Status.BAD_REQUEST, hubResponse.optString("message", "Hub rejected binding"))
+        }
+
+        // Store binding info in SharedPreferences
+        val prefs = hubConfigPrefs
+        if (prefs != null) {
+            prefs.edit().apply {
+                putString("hub_url", hubUrl)
+                putString("device_id", deviceId)
+                putString("group_key", groupKey)
+                putString("api_key", apiKey)
+                // Store optional fields from Hub response
+                hubResponse.optString("group_id", null)?.let { putString("group_id", it) }
+                hubResponse.optString("signing_pubkey", null)?.let { putString("signing_pubkey", it) }
+                hubResponse.optString("broadcast_sound", null)?.let { putString("broadcast_sound", it) }
+                hubResponse.optString("update_policy", null)?.let { putString("update_policy", it) }
+                apply()
+            }
+            Log.d(TAG, "Hub binding stored: device_id=$deviceId, hub_url=$hubUrl")
+        }
+
+        return jsonSuccess(hubResponse)
+    }
+
+    /**
+     * POST /api/location - Report GPS location to Hub
+     * Request: {lat, lng, accuracy, timestamp}
+     * Forwards to Hub's /api/v2/fieldtrip/devices/{device_id}/location
+     */
+    private fun handleLocation(session: IHTTPSession): Response {
+        val body = parseBody(session) ?: return jsonError(Response.Status.BAD_REQUEST, "Request body is required")
+        val lat = body.optDouble("lat", Double.NaN)
+        val lng = body.optDouble("lng", Double.NaN)
+        val accuracy = body.optDouble("accuracy", -1.0)
+        val timestamp = body.optLong("timestamp", System.currentTimeMillis())
+
+        if (lat.isNaN() || lng.isNaN()) {
+            return jsonError(Response.Status.BAD_REQUEST, "lat and lng are required")
+        }
+
+        // Get device_id and api_key from SharedPreferences
+        val prefs = hubConfigPrefs
+        val deviceId = prefs?.getString("device_id", null) ?: return jsonError(Response.Status.BAD_REQUEST, "Device not bound to Hub")
+        val apiKey = prefs.getString("api_key", null) ?: return jsonError(Response.Status.UNAUTHORIZED, "No API key available")
+        val hubUrl = prefs.getString("hub_url", null) ?: return jsonError(Response.Status.BAD_REQUEST, "Hub URL not configured")
+
+        // Forward to Hub
+        val hubLocationUrl = "${hubUrl.trimEnd('/')}/api/v2/fieldtrip/devices/${deviceId}/location"
+        val requestBody = JSONObject().apply {
+            put("lat", lat)
+            put("lng", lng)
+            put("accuracy", accuracy)
+            put("timestamp", timestamp)
+        }
+
+        val hubResponse = forwardToHub(hubLocationUrl, requestBody, apiKey)
+        if (hubResponse == null) {
+            return jsonError(Response.Status.SERVICE_UNAVAILABLE, "Failed to connect to Hub")
+        }
+
+        return jsonSuccess(JSONObject().apply {
+            put("status", "ok")
+        })
+    }
+
+    /**
+     * GET /api/commands - Poll for pending commands from Hub
+     * Query params: device_id
+     * Forwards to Hub's /api/v2/fieldtrip/commands?device_id=xxx
+     */
+    private fun handleCommandsGet(session: IHTTPSession): Response {
+        val params = session.parms ?: emptyMap()
+        var deviceId = params["device_id"]
+
+        // Fall back to stored device_id if not provided
+        if (deviceId.isNullOrEmpty()) {
+            deviceId = hubConfigPrefs?.getString("device_id", null)
+        }
+
+        if (deviceId.isNullOrEmpty()) {
+            return jsonError(Response.Status.BAD_REQUEST, "device_id is required")
+        }
+
+        val prefs = hubConfigPrefs
+        val apiKey = prefs?.getString("api_key", null) ?: return jsonError(Response.Status.UNAUTHORIZED, "No API key available")
+        val hubUrl = prefs.getString("hub_url", null) ?: return jsonError(Response.Status.BAD_REQUEST, "Hub URL not configured")
+
+        // Forward to Hub
+        val hubCommandsUrl = "${hubUrl.trimEnd('/')}/api/v2/fieldtrip/commands?device_id=${deviceId}"
+        val hubResponse = forwardToHubGet(hubCommandsUrl, apiKey)
+        if (hubResponse == null) {
+            return jsonError(Response.Status.SERVICE_UNAVAILABLE, "Failed to connect to Hub")
+        }
+
+        return newFixedLengthResponse(Response.Status.OK, MIME_JSON, hubResponse.toString()).apply {
+            addHeader("Access-Control-Allow-Origin", "*")
+        }
+    }
+
+    /**
+     * POST /api/commands - Alternative: POST with device_id in body
+     */
+    private fun handleCommands(session: IHTTPSession): Response {
+        val body = parseBody(session)
+        var deviceId: String? = body?.optString("device_id", null)
+
+        // Fall back to stored device_id if not provided
+        if (deviceId.isNullOrEmpty()) {
+            deviceId = hubConfigPrefs?.getString("device_id", null)
+        }
+
+        if (deviceId.isNullOrEmpty()) {
+            return jsonError(Response.Status.BAD_REQUEST, "device_id is required")
+        }
+
+        val prefs = hubConfigPrefs
+        val apiKey = prefs?.getString("api_key", null) ?: return jsonError(Response.Status.UNAUTHORIZED, "No API key available")
+        val hubUrl = prefs.getString("hub_url", null) ?: return jsonError(Response.Status.BAD_REQUEST, "Hub URL not configured")
+
+        // Forward to Hub
+        val hubCommandsUrl = "${hubUrl.trimEnd('/')}/api/v2/fieldtrip/commands?device_id=${deviceId}"
+        val hubResponse = forwardToHubGet(hubCommandsUrl, apiKey)
+        if (hubResponse == null) {
+            return jsonError(Response.Status.SERVICE_UNAVAILABLE, "Failed to connect to Hub")
+        }
+
+        return newFixedLengthResponse(Response.Status.OK, MIME_JSON, hubResponse.toString()).apply {
+            addHeader("Access-Control-Allow-Origin", "*")
+        }
+    }
+
+    /**
+     * GET /api/app_whitelist - Get current app whitelist from SharedPreferences
+     */
+    private fun handleAppWhitelistGet(): Response {
+        val prefs = hubConfigPrefs
+        val whitelistStr = prefs?.getString("app_whitelist", null)
+        val whitelist = if (whitelistStr != null) {
+            try {
+                JSONArray(whitelistStr)
+            } catch (e: Exception) {
+                JSONArray()
+            }
+        } else {
+            JSONArray()
+        }
+        return jsonSuccess(JSONObject().apply {
+            put("whitelist", whitelist)
+        })
+    }
+
+    /**
+     * POST /api/app_whitelist - Hub pushes whitelist to tablet
+     * Request: {whitelist: ["com.android.chrome", ...]}
+     */
+    private fun handleAppWhitelistPost(session: IHTTPSession): Response {
+        val body = parseBody(session) ?: return jsonError(Response.Status.BAD_REQUEST, "Request body is required")
+        val whitelistArray = body.optJSONArray("whitelist") ?: return jsonError(Response.Status.BAD_REQUEST, "whitelist array is required")
+
+        // Store in SharedPreferences as JSON string
+        val prefs = hubConfigPrefs
+        if (prefs != null) {
+            prefs.edit().putString("app_whitelist", whitelistArray.toString()).apply()
+            Log.d(TAG, "App whitelist updated: ${whitelistArray.length()} apps")
+        }
+
+        return jsonSuccess(JSONObject().apply {
+            put("status", "ok")
+        })
+    }
+
+    // ==================== Hub Forwarding Helpers ====================
+
+    /**
+     * Forward a POST request to the Hub server
+     */
+    private fun forwardToHub(urlString: String, body: JSONObject, apiKey: String?): JSONObject? {
+        return try {
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Accept", "application/json")
+            if (!apiKey.isNullOrEmpty()) {
+                conn.setRequestProperty("X-Api-Key", apiKey)
+            }
+            conn.doOutput = true
+            conn.outputStream.write(body.toString().toByteArray())
+            conn.outputStream.flush()
+            conn.outputStream.close()
+
+            val responseCode = conn.responseCode
+            val responseBody = conn.inputStream.bufferedReader().readText()
+
+            if (responseCode in 200..299) {
+                JSONObject(responseBody)
+            } else {
+                Log.w(TAG, "Hub returned error: $responseCode - $responseBody")
+                JSONObject().apply {
+                    put("error", true)
+                    put("code", responseCode)
+                    put("message", responseBody.take(200))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to forward to Hub: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Forward a GET request to the Hub server
+     */
+    private fun forwardToHubGet(urlString: String, apiKey: String?): JSONObject? {
+        return try {
+            val url = URL(urlString)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Accept", "application/json")
+            if (!apiKey.isNullOrEmpty()) {
+                conn.setRequestProperty("X-Api-Key", apiKey)
+            }
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+
+            val responseCode = conn.responseCode
+            val responseBody = conn.inputStream.bufferedReader().readText()
+
+            if (responseCode in 200..299) {
+                JSONObject(responseBody)
+            } else {
+                Log.w(TAG, "Hub returned error: $responseCode - $responseBody")
+                JSONObject().apply {
+                    put("error", true)
+                    put("code", responseCode)
+                    put("message", responseBody.take(200))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to forward to Hub: ${e.message}")
+            null
+        }
     }
 
     // ==================== Helpers ====================

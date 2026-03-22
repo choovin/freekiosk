@@ -190,7 +190,8 @@ class HttpServerModule(private val reactContext: ReactApplicationContext) :
                 statusProvider = { getDeviceStatus() },
                 commandHandler = { command, params -> handleCommand(command, params) },
                 screenshotProvider = { captureScreenshot() },
-                cameraPhotoProvider = { camera, quality -> cameraPhotoModule?.capturePhoto(camera, quality) }
+                cameraPhotoProvider = { camera, quality -> cameraPhotoModule?.capturePhoto(camera, quality) },
+                context = reactContext.applicationContext
             )
 
             server?.start()
