@@ -103,7 +103,11 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const NUMBERS_PER_ROW = 10;
 const NUMBER_BUTTON_SIZE = (SCREEN_WIDTH - 80) / NUMBERS_PER_ROW;
 
-const OnboardingScreen: React.FC = () => {
+interface OnboardingScreenProps {
+  onSkip?: () => void;
+}
+
+const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
   const navigation = useNavigation<OnboardingNavigationProp>();
   const { t } = useTranslation();
 
@@ -337,10 +341,14 @@ const OnboardingScreen: React.FC = () => {
   const handleSecondaryPress = useCallback(() => {
     if (currentStep === 'welcome') {
       // Skip onboarding and go directly to Kiosk
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Kiosk' }],
-      });
+      if (onSkip) {
+        onSkip();
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Kiosk' }],
+        });
+      }
     } else if (currentStep === 'scanGroup') {
       // Go back to welcome
       setCurrentStepIndex(STEP_ORDER.indexOf('welcome'));

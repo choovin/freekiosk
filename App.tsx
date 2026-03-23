@@ -86,7 +86,7 @@ const App: React.FC = () => {
   return (
     <NavigationContainer>
       <StatusBar hidden={true} />
-      {isBound ? <AppNavigator /> : <OnboardingScreen />}
+      {isBound ? <AppNavigator /> : <OnboardingScreen onSkip={() => setIsBound(true)} />}
     </NavigationContainer>
   );
 };

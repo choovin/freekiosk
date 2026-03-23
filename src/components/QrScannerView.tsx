@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Alert, Platform, PermissionsAndroid, TouchableOpacity } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, Code, useCodeScanner } from 'react-native-vision-camera';
 import type { CodeScanner } from 'react-native-vision-camera';
 import { Colors } from '../theme';
@@ -157,6 +157,9 @@ const QrScannerView: React.FC<QrScannerViewProps> = ({
         <View style={styles.overlayBottom}>
           <Text style={styles.instructionText}>将二维码放入框内</Text>
           <Text style={styles.hintText}>扫描中...</Text>
+          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+            <Text style={styles.cancelButtonText}>取消</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -235,6 +238,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     marginTop: 12,
+  },
+  cancelButton: {
+    marginTop: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   permissionContainer: {
     flex: 1,

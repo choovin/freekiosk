@@ -27,6 +27,10 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
         private const val KEY_SIGNING_PUBKEY = "signing_pubkey"
         private const val KEY_BROADCAST_SOUND = "broadcast_sound"
         private const val KEY_UPDATE_POLICY = "update_policy"
+        // MQTT broker URL 存储位置（与 MainActivity/FreeKioskAdbConfig 一致）
+        private const val MQTT_PREFS_NAME = "FreeKioskAdbConfig"
+        private const val KEY_MQTT_BROKER_URL = "@kiosk_mqtt_broker_url"
+        private const val KEY_MQTT_PORT = "@kiosk_mqtt_port"
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -91,6 +95,13 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                     ?.putString(KEY_API_KEY, apiKey)
                     ?.apply()
 
+                // Also save hub_url as MQTT broker URL (for EMQX connection)
+                val mqttPrefs = reactContext.getSharedPreferences(MQTT_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                mqttPrefs.edit()
+                    ?.putString(KEY_MQTT_BROKER_URL, hubUrl)
+                    ?.apply()
+                android.util.Log.d(NAME, "MQTT broker URL set to: $hubUrl")
+
                 // Make bind request to hub
                 val bindUrl = "$hubUrl/api/v2/fieldtrip/devices/bind"
                 val requestBody = JSONObject().apply {
@@ -109,6 +120,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                     val signingPubkey = responseJson.optString("signing_pubkey", "")
                     val broadcastSound = responseJson.optString("broadcast_sound", "default")
                     val updatePolicy = responseJson.optString("update_policy", "auto")
+                    val mqttBrokerUrl = responseJson.optString("mqtt_broker_url", hubUrl)
+                    val mqttPort = responseJson.optInt("mqtt_port", 1883)
 
                     // Store full config
                     prefs?.edit()
@@ -120,6 +133,14 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                         ?.putString(KEY_UPDATE_POLICY, updatePolicy)
                         ?.apply()
 
+                    // Store MQTT broker config (for EMQX connection)
+                    val mqttPrefs = reactContext.getSharedPreferences(MQTT_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                    mqttPrefs.edit()
+                        ?.putString(KEY_MQTT_BROKER_URL, mqttBrokerUrl)
+                        ?.putInt(KEY_MQTT_PORT, mqttPort)
+                        ?.apply()
+                    android.util.Log.d(NAME, "MQTT broker set to: $mqttBrokerUrl:$mqttPort")
+
                     val result = Arguments.createMap().apply {
                         putString("deviceId", deviceId)
                         putString("groupId", groupId)
@@ -129,6 +150,8 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
                         putString("signingPubkey", signingPubkey)
                         putString("broadcastSound", broadcastSound)
                         putString("updatePolicy", updatePolicy)
+                        putString("mqttBrokerUrl", mqttBrokerUrl)
+                        putInt("mqttPort", mqttPort)
                     }
 
                     withContext(Dispatchers.Main) {
