@@ -13,8 +13,6 @@ import {
   NativeModules,
   Alert,
   ScrollView,
-  Platform,
-  PermissionsAndroid,
   ActivityIndicator,
   Modal,
   Animated,
@@ -25,13 +23,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import Icon, { IconName } from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '../theme';
-
-// QR Scanner module type interface
-interface QrScannerInterface {
-  scanQr: () => Promise<string>;
-  stopScanning: () => Promise<void>;
-}
-const QrScannerModule = NativeModules.QrScannerModule as QrScannerInterface;
+import QrScannerView from '../components/QrScannerView';
 
 // Constants
 const GPS_INTERVAL_SECONDS = 30;
@@ -123,6 +115,7 @@ const OnboardingScreen: React.FC = () => {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   // Progress animation for success step
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -171,28 +164,6 @@ const OnboardingScreen: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [currentStep, progressAnim, navigation]);
 
-  // Request camera permission
-  const requestCameraPermission = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return false;
-
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        {
-          title: translations.cameraPermissionTitle,
-          message: translations.cameraPermissionMessage,
-          buttonNeutral: translations.cameraPermissionNeutral,
-          buttonNegative: translations.cameraPermissionNegative,
-          buttonPositive: translations.cameraPermissionPositive,
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn('Camera permission error:', err);
-      return false;
-    }
-  }, []);
-
   // Clear group key on error for consistent state
   const clearGroupKey = useCallback(() => {
     setGroupKey(null);
@@ -202,50 +173,21 @@ const OnboardingScreen: React.FC = () => {
 
   // Start QR scanning for group
   const startGroupQrScan = useCallback(async () => {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
-      Alert.alert(translations.permissionDenied, translations.scanRetry);
+    setScanningFor('group');
+    setShowScanner(true);
+  }, []);
+
+  // Handle group QR code scanned
+  const handleGroupQrScanned = useCallback(async (qrData: string) => {
+    setShowScanner(false);
+    setScanningFor(null);
+
+    if (!qrData) {
+      Alert.alert(translations.scanCanceled, translations.scanRetry);
       return;
     }
 
-    setScanningFor('group');
-    setHasError(false);
-
-    // Create a promise that rejects on timeout
-    const scanWithTimeout = new Promise<string>((resolve, reject) => {
-      scanTimeoutRef.current = setTimeout(() => {
-        reject(new Error('scan_timeout'));
-      }, QR_SCAN_TIMEOUT_MS);
-
-      QrScannerModule.scanQr()
-        .then((result) => {
-          if (scanTimeoutRef.current) {
-            clearTimeout(scanTimeoutRef.current);
-            scanTimeoutRef.current = null;
-          }
-          resolve(result);
-        })
-        .catch((err) => {
-          if (scanTimeoutRef.current) {
-            clearTimeout(scanTimeoutRef.current);
-            scanTimeoutRef.current = null;
-          }
-          reject(err);
-        });
-    });
-
     try {
-      const qrData = await scanWithTimeout;
-      if (!mountedRef.current) return;
-
-      await QrScannerModule.stopScanning();
-      setScanningFor(null);
-
-      if (!qrData) {
-        Alert.alert(translations.scanCanceled, translations.scanRetry);
-        return;
-      }
-
       const payload = JSON.parse(qrData);
       if (!payload.group_key) {
         Alert.alert(translations.invalidGroupQr, translations.invalidGroupQrMessage);
@@ -256,72 +198,39 @@ const OnboardingScreen: React.FC = () => {
       setGroupName(payload.group_name || '研学小组');
       // Move to select number step
       setCurrentStepIndex(STEP_ORDER.indexOf('selectNumber'));
-    } catch (error: any) {
-      if (!mountedRef.current) return;
-
-      await QrScannerModule.stopScanning();
-      setScanningFor(null);
-      console.error('Group QR scan error:', error);
-
-      if (error.message === 'scan_timeout') {
-        Alert.alert(translations.scanTimeout, translations.scanTimeoutMessage);
-      } else {
-        Alert.alert(translations.scanError, translations.scanRetryMessage);
-      }
+    } catch (error) {
+      Alert.alert(translations.invalidGroupQr, translations.invalidGroupQrMessage);
     }
-  }, [requestCameraPermission]);
+  }, []);
+
+  // Cancel group scan
+  const cancelGroupScan = useCallback(() => {
+    setShowScanner(false);
+    setScanningFor(null);
+  }, []);
 
   // Start QR scanning for device
   const startDeviceQrScan = useCallback(async () => {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
-      Alert.alert(translations.permissionDenied, translations.scanRetry);
-      return;
-    }
-
     if (!groupKey || !deviceNumber) {
       Alert.alert(translations.permissionDenied, translations.selectNumberMessage);
       return;
     }
 
     setScanningFor('device');
-    setHasError(false);
+    setShowScanner(true);
+  }, [groupKey, deviceNumber]);
 
-    // Create a promise that rejects on timeout
-    const scanWithTimeout = new Promise<string>((resolve, reject) => {
-      scanTimeoutRef.current = setTimeout(() => {
-        reject(new Error('scan_timeout'));
-      }, QR_SCAN_TIMEOUT_MS);
+  // Handle device QR code scanned
+  const handleDeviceQrScanned = useCallback(async (qrData: string) => {
+    setShowScanner(false);
+    setScanningFor(null);
 
-      QrScannerModule.scanQr()
-        .then((result) => {
-          if (scanTimeoutRef.current) {
-            clearTimeout(scanTimeoutRef.current);
-            scanTimeoutRef.current = null;
-          }
-          resolve(result);
-        })
-        .catch((err) => {
-          if (scanTimeoutRef.current) {
-            clearTimeout(scanTimeoutRef.current);
-            scanTimeoutRef.current = null;
-          }
-          reject(err);
-        });
-    });
+    if (!qrData) {
+      Alert.alert(translations.scanCanceled, translations.scanRetry);
+      return;
+    }
 
     try {
-      const qrData = await scanWithTimeout;
-      if (!mountedRef.current) return;
-
-      await QrScannerModule.stopScanning();
-      setScanningFor(null);
-
-      if (!qrData) {
-        Alert.alert(translations.scanCanceled, translations.scanRetry);
-        return;
-      }
-
       const payload = JSON.parse(qrData);
       if (!payload.device_id || !payload.api_key || !payload.hub_url) {
         Alert.alert(translations.invalidDeviceQr, translations.invalidDeviceQrMessage);
@@ -382,20 +291,16 @@ const OnboardingScreen: React.FC = () => {
         // Go back to step 1 (scan group)
         setCurrentStepIndex(STEP_ORDER.indexOf('scanGroup'));
       }
-    } catch (error: any) {
-      if (!mountedRef.current) return;
-
-      await QrScannerModule.stopScanning();
-      setScanningFor(null);
-      console.error('Device QR scan error:', error);
-
-      if (error.message === 'scan_timeout') {
-        Alert.alert(translations.scanTimeout, translations.scanTimeoutMessage);
-      } else {
-        Alert.alert(translations.bindError, translations.scanRetryMessage);
-      }
+    } catch (error) {
+      Alert.alert(translations.invalidDeviceQr, translations.invalidDeviceQrMessage);
     }
-  }, [groupKey, deviceNumber, requestCameraPermission, clearGroupKey]);
+  }, [groupKey, deviceNumber]);
+
+  // Cancel device scan
+  const cancelDeviceScan = useCallback(() => {
+    setShowScanner(false);
+    setScanningFor(null);
+  }, []);
 
   // Handle primary button press based on current step
   const handlePrimaryPress = useCallback(() => {
@@ -674,6 +579,23 @@ const OnboardingScreen: React.FC = () => {
             <Text style={styles.overlaySubText}>{translations.configuringMessage}</Text>
           </View>
         </View>
+      </Modal>
+
+      {/* QR Scanner overlay */}
+      <Modal visible={showScanner} animationType="slide">
+        {scanningFor === 'group' ? (
+          <QrScannerView
+            onCodeScanned={handleGroupQrScanned}
+            onCancel={cancelGroupScan}
+            scanTimeout={QR_SCAN_TIMEOUT_MS}
+          />
+        ) : (
+          <QrScannerView
+            onCodeScanned={handleDeviceQrScanned}
+            onCancel={cancelDeviceScan}
+            scanTimeout={QR_SCAN_TIMEOUT_MS}
+          />
+        )}
       </Modal>
 
       {/* Step indicator */}
