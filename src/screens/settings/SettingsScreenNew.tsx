@@ -236,7 +236,12 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   // return [] on the first call if the provider hasn't resolved yet).
   const detectCameras = useCallback(() => {
     try {
-      const devices = Camera.getAvailableCameraDevices();
+      const devices = Camera.getAvailableCameraDevices?.();
+      if (!devices || !Array.isArray(devices)) {
+        console.warn('[Settings] vision-camera returned invalid devices, trying Camera2 fallback...');
+        fetchCamera2Fallback();
+        return;
+      }
       const cameras = devices
         .filter((d: any) => d.position === 'front' || d.position === 'back')
         .map((d: any) => ({ position: d.position as 'front' | 'back', id: d.id }));
