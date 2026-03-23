@@ -33,7 +33,10 @@ const QrScannerView: React.FC<QrScannerViewProps> = ({
   // Request camera permission on mount
   useEffect(() => {
     if (!hasPermission) {
-      requestPermission();
+      // Request permission and handle potential rejection
+      requestPermission().catch((error) => {
+        console.warn('[QrScanner] Camera permission error:', error);
+      });
     }
   }, [hasPermission, requestPermission]);
 
@@ -70,12 +73,14 @@ const QrScannerView: React.FC<QrScannerViewProps> = ({
 
   // Handle code scanned
   const handleCodeScanned = useCallback((codes: Code[]) => {
-    if (scannedRef.current || codes.length === 0) {
+    // Defensive: ensure codes is a valid non-empty array
+    if (scannedRef.current || !codes || codes.length === 0) {
       return;
     }
 
     const code = codes[0];
-    if (code.value) {
+    // Defensive: ensure code exists and has a value
+    if (code && code.value) {
       scannedRef.current = true;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

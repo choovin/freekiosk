@@ -214,7 +214,12 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const fetchCamera2Fallback = useCallback(async () => {
     try {
       const camera2Devices = await httpServer.getCamera2Devices();
-      if (camera2Devices && camera2Devices.length > 0) {
+      // Defensive: ensure camera2Devices is a valid array before processing
+      if (!camera2Devices || !Array.isArray(camera2Devices)) {
+        console.warn('[Settings] Camera2 fallback received invalid devices:', camera2Devices);
+        return false;
+      }
+      if (camera2Devices.length > 0) {
         const cameras = camera2Devices
           .filter((d: any) => d.position === 'front' || d.position === 'back')
           .map((d: any) => ({ position: d.position as 'front' | 'back', id: d.id }));
@@ -288,6 +293,12 @@ const SettingsScreenNew: React.FC<SettingsScreenProps> = ({ navigation }) => {
   // validation permanently fails), fall back to Camera2 API enumeration.
   useEffect(() => {
     const subscription = Camera.addCameraDevicesChangedListener((devices) => {
+      // Defensive: ensure devices is a valid array before processing
+      if (!devices || !Array.isArray(devices)) {
+        console.warn('[Settings] CameraDevicesChanged received invalid devices, trying Camera2 fallback...');
+        fetchCamera2Fallback();
+        return;
+      }
       const cameras = devices
         .filter((d: any) => d.position === 'front' || d.position === 'back')
         .map((d: any) => ({ position: d.position as 'front' | 'back', id: d.id }));
