@@ -178,7 +178,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({
         )}
         
         <Text style={styles.hint}>
-          {isDeviceOwner ? 'Device Owner mode: Manual updates via GitHub.' : 'Download and install updates from GitHub.'}
+          {isDeviceOwner ? 'Device Owner mode: Manual updates via releases.' : 'Download and install updates from releases.'}
         </Text>
       </SettingsSection>
       )}

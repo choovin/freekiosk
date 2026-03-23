@@ -54,18 +54,20 @@ export type LanguageCode = keyof typeof AVAILABLE_LANGUAGES;
 export const initI18n = async () => {
   try {
     // Try to get saved language
-    let language: string = 'en';
+    let language: string = 'zh';
     try {
       const savedLanguage = await AsyncStorage.getItem('app_language');
       if (savedLanguage && AVAILABLE_LANGUAGES[savedLanguage]) {
         language = savedLanguage;
       } else {
-        // Detect from device
+        // Detect from device - prioritize Chinese
         const deviceLang = Platform.OS === 'ios'
-          ? 'en' // iOS: could use NativeModules.SettingsManager
-          : Platform.constants.locale?.split('-')[0] || 'en';
+          ? 'zh' // iOS: default to Chinese
+          : Platform.constants.locale?.split('-')[0] || 'zh';
         if (AVAILABLE_LANGUAGES[deviceLang]) {
           language = deviceLang;
+        } else {
+          language = 'zh'; // Fallback to Chinese
         }
       }
     } catch (e) {
@@ -75,7 +77,7 @@ export const initI18n = async () => {
     i18n.use(initReactI18next).init({
       resources: RESOURCES,
       lng: language,
-      fallbackLng: 'en',
+      fallbackLng: 'zh',
       debug: false,
       interpolation: {
         escapeValue: false, // React already escapes

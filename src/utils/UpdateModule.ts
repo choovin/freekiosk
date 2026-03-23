@@ -32,7 +32,7 @@ export default {
   },
 
   /**
-   * Check for available updates on GitHub (stable channel only)
+   * Check for available updates (stable channel only)
    * No-op in Play Store builds.
    */
   checkForUpdates(): Promise<UpdateInfo> {

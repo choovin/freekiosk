@@ -8,7 +8,6 @@ import {
   Animated,
   Image,
   ScrollView,
-  Linking
 } from 'react-native';
 
 import { WebView } from 'react-native-webview';
@@ -456,12 +455,6 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
     navigation.navigate('Pin');
   };
 
-  const handleOpenGitHub = (): void => {
-    Linking.openURL('https://github.com/rushb-fr/freekiosk').catch(err =>
-      console.error('[FreeKiosk] Failed to open GitHub URL:', err)
-    );
-  };
-
   if (!url) {
     return (
       <View style={styles.welcomeContainer}>
@@ -500,7 +493,7 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
               />
               <FeatureItem
                 icon="🎯"
-                text="100% free & open source"
+                text="Professional features"
               />
             </View>
 
@@ -515,17 +508,6 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
               </Text>
             </TouchableOpacity>
 
-            {/* GitHub Support Button */}
-            <TouchableOpacity
-              style={styles.githubButton}
-              onPress={handleOpenGitHub}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.githubButtonText}>
-                ⭐ Support us on GitHub
-              </Text>
-            </TouchableOpacity>
-
             {/* Hint */}
             <View style={styles.hintContainer}>
               <Text style={styles.hintText}>
@@ -535,7 +517,7 @@ const WebViewComponent = forwardRef<WebViewComponentRef, WebViewComponentProps>(
 
             {/* Footer */}
             <Text style={styles.footerText}>
-              Version 1.2.17 • by Rushb
+              Version 1.2.17 • FreeKiosk
             </Text>
           </Animated.View>
         </ScrollView>
@@ -924,22 +906,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     lineHeight: 18,
-  },
-  githubButton: {
-    marginTop: 20,
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    alignItems: 'center',
-  },
-  githubButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   footerText: {
     marginTop: 32,
