@@ -20,13 +20,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Kiosk"
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+    <Stack.Navigator
+      initialRouteName="Kiosk"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
         <Stack.Screen 
           name="Kiosk" 
           component={KioskScreen}
@@ -66,7 +65,6 @@ const AppNavigator: React.FC = () => {
           }}
         />
       </Stack.Navigator>
-    </NavigationContainer>
   );
 };
 

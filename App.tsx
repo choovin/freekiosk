@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { NativeModules } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import { initI18n } from './src/i18n/config';
@@ -83,10 +84,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <>
+    <NavigationContainer>
       <StatusBar hidden={true} />
       {isBound ? <AppNavigator /> : <OnboardingScreen />}
-    </>
+    </NavigationContainer>
   );
 };
 
