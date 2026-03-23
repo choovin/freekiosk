@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SettingsSection,
   SettingsInput,
@@ -236,32 +237,30 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   pickingMedia,
   onBackToKiosk,
 }) => {
+  const { t } = useTranslation();
   return (
     <View>
       {/* Display Mode Selection */}
-      <SettingsSection title="Display Mode" icon="cellphone">
+      <SettingsSection title={t('general.displayMode')} icon="cellphone">
         <SettingsModeSelector
           options={[
-            { value: 'webview', label: 'Website', icon: 'web' },
-            { value: 'media_player', label: 'Media', icon: 'play-circle-outline' },
-            { value: 'external_app', label: 'App', icon: 'android' },
+            { value: 'webview', label: t('general.webView'), icon: 'web' },
+            { value: 'media_player', label: t('mediaPlayer.title'), icon: 'play-circle-outline' },
+            { value: 'external_app', label: t('general.externalApp'), icon: 'android' },
           ]}
           value={displayMode}
           onValueChange={(value) => onDisplayModeChange(value as 'webview' | 'external_app' | 'media_player')}
-          hint="Website, media player (video/images), or Android application"
+          hint={t('general.displayModeHint')}
         />
         
         {/* Device Owner warning for External App */}
         {displayMode === 'external_app' && !isDeviceOwner && (
-          <SettingsInfoBox variant="error" title="🔒 Device Owner Recommended">
+          <SettingsInfoBox variant="error" title={t('general.deviceOwnerRecommended')}>
             <Text style={styles.infoText}>
-              Without Device Owner:{`
-`}
-              • Navigation buttons remain accessible{`
-`}
-              • User can exit the app freely{`
-`}
-              • Lock mode may not work properly
+              {t('general.withoutDeviceOwner')}{'\n'}
+              • {t('general.navButtonsAccessible')}{'\n'}
+              • {t('general.canExitFreely')}{'\n'}
+              • {t('general.lockModeMayNotWork')}
             </Text>
           </SettingsInfoBox>
         )}
@@ -269,11 +268,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
       
       {/* How to Use */}
       <SettingsSection variant="info">
-        <Text style={styles.infoTitle}>ℹ️ How to Use</Text>
+        <Text style={styles.infoTitle}>{t('common.info')} {t('general.howToUse')}</Text>
         <Text style={styles.infoText}>
-          {displayMode === 'media_player' 
-            ? '• Add video or image URLs to build a playlist\n• Configure playback options (loop, shuffle, etc.)\n• Set a secure PIN code\n• Enable "Lock Mode" for full kiosk mode\n• Tap 5 times to access settings'
-            : `• Configure the URL of the web page to display\n• Set a secure PIN code\n• Enable "Lock Mode" for full kiosk mode\n• Tap 5 times on the secret button to access settings (default: bottom-right)\n• Enter PIN code to unlock`}
+          {displayMode === 'media_player'
+            ? t('general.howToUseMediaPlayer')
+            : t('general.howToUseWebview')}
         </Text>
       </SettingsSection>
       
@@ -281,12 +280,12 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
       {displayMode === 'media_player' && (
         <>
           {/* Media Items / Playlist */}
-          <SettingsSection title="Media Playlist" icon="play-circle-outline">
+          <SettingsSection title={t('mediaPlayer.mediaList')} icon="play-circle-outline">
             <SettingsInfoBox variant="info">
               <Text style={styles.infoText}>
-                {'🎬 Add media from your device or via URL.\n'}
-                {'Supported: MP4, WebM, OGG (video) • JPG, PNG, GIF, WebP, SVG (image)\n\n'}
-                {'📱 Local files are copied to app storage for reliable playback.'}
+                {t('mediaPlayer.addMediaHint1')}{'\n'}
+                {t('mediaPlayer.addMediaHint2')}{'\n\n'}
+                {t('mediaPlayer.addMediaHint3')}
               </Text>
             </SettingsInfoBox>
             
@@ -298,7 +297,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                 disabled={pickingMedia}
               >
                 <Text style={styles.pickButtonText}>
-                  {pickingMedia ? '⏳ Picking...' : '📁 Pick from Device'}
+                  {pickingMedia ? t('common.loading') : t('mediaPlayer.pickFromDevice')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -326,7 +325,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
                     { backgroundColor: item.type === 'video' ? Colors.info : Colors.secondary }
                   ]}>
                     <Text style={styles.mediaItemTypeText}>
-                      {item.type === 'video' ? '🎥 Video' : '🖼️ Image'}
+                      {item.type === 'video' ? t('mediaPlayer.video') : t('mediaPlayer.image')}
                     </Text>
                   </View>
                   {item.isLocal && (

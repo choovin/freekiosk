@@ -1,4 +1,22 @@
 {
+  "pin": {
+    "backToKiosk": "返回 Kiosk",
+    "lockedOut": "🔒 已锁定",
+    "lockedOutMessage": "尝试次数过多。\n\n请在 {{minutes}} 分钟后重试。",
+    "passwordMinLength": "密码至少需要4个字符",
+    "tooManyAttempts": "🔒 尝试次数过多",
+    "accountLocked": "账户已被锁定15分钟",
+    "incorrectPin": "❌ PIN码错误",
+    "attemptsRemaining": "剩余 {{count}} 次尝试机会",
+    "tryAgain": "重试",
+    "verifyError": "发生错误，请重试",
+    "enterPassword": "输入密码",
+    "enterPinCode": "输入 PIN 码",
+    "retryIn": "重试时间",
+    "defaultCode": "默认密码",
+    "attemptsRemainingCount": "剩余 {{count}} 次尝试机会",
+    "validate": "确认"
+  },
   "app": {
     "name": "FreeKiosk"
   },
@@ -13,9 +31,18 @@
   "general": {
     "title": "通用设置",
     "displayMode": "显示模式",
-    "webView": "WebView",
+    "displayModeHint": "网站、媒体播放器（视频/图片）或 Android 应用",
+    "webView": "网站",
     "externalApp": "外部应用",
     "mediaPlayer": "媒体播放器",
+    "deviceOwnerRecommended": "🔒 建议设置设备所有者",
+    "withoutDeviceOwner": "未设置设备所有者：",
+    "navButtonsAccessible": "导航按钮仍然可访问",
+    "canExitFreely": "用户可以自由退出应用",
+    "lockModeMayNotWork": "锁定模式可能无法正常工作",
+    "howToUse": "使用方法",
+    "howToUseMediaPlayer": "添加视频或图片 URL 来构建播放列表，配置播放选项，设置 PIN 码，启用锁定模式，点击5次访问设置",
+    "howToUseWebview": "配置网页 URL，设置 PIN 码，启用锁定模式，点击5次访问设置，输入 PIN 解锁",
     "url": "网址",
     "urlPlaceholder": "输入网址",
     "dashboard": "仪表板",
@@ -260,7 +287,11 @@
     "shuffle": "随机",
     "crossfade": "交叉淡入淡出",
     "crossfadeDuration": "交叉淡入淡出时长",
-    "playbackSpeed": "播放速度"
+    "playbackSpeed": "播放速度",
+    "addMediaHint1": "🎬 从您的设备或通过 URL 添加媒体。",
+    "addMediaHint2": "支持格式：MP4、WebM、OGG（视频）• JPG、PNG、GIF、WebP、SVG（图片）",
+    "addMediaHint3": "📱 本地文件会被复制到应用存储以确保可靠播放。",
+    "pickFromDevice": "📁 从设备选择"
   },
   "externalApp": {
     "title": "外部应用",
@@ -379,7 +410,11 @@
   },
   "fieldtrip": {
     "hubConnection": "Hub连接状态",
+    "hubUrl": "Hub URL",
     "deviceInfo": "设备信息",
+    "deviceId": "设备 ID",
+    "groupId": "分组 ID",
+    "deviceName": "设备名称",
     "gpsStatus": "GPS状态",
     "actions": "操作",
     "status": "状态",

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SettingsSection,
   SettingsInput,
@@ -23,6 +24,7 @@ const ICON_MODES = [
 ];
 
 const DashboardTab: React.FC<DashboardTabProps> = ({ dashboardModeEnabled }) => {
+  const { t } = useTranslation();
   const [tiles, setTiles] = useState<DashboardTile[]>([]);
   const [editingTile, setEditingTile] = useState<DashboardTile | null>(null);
   const [showEditor, setShowEditor] = useState(false);

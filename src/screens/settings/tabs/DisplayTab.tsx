@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SettingsSection,
   SettingsSwitch,
@@ -152,6 +153,7 @@ const DisplayTab: React.FC<DisplayTabProps> = ({
   onAddScheduleRule,
   onEditScheduleRule,
 }) => {
+  const { t } = useTranslation();
   const handleCameraPositionChange = (value: string) => {
     if (value === 'front' || value === 'back') {
       onMotionCameraPositionChange(value);

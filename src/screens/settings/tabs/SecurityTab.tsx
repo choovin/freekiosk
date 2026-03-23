@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   SettingsSection,
   SettingsSwitch,
@@ -118,6 +119,7 @@ const SecurityTab: React.FC<SecurityTabProps> = ({
   urlFilterShowFeedback,
   onUrlFilterShowFeedbackChange,
 }) => {
+  const { t } = useTranslation();
   return (
     <View>
       {/* Lock Mode */}

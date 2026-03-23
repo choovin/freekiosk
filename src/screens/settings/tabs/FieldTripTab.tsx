@@ -167,7 +167,7 @@ const FieldTripTab: React.FC<FieldTripTabProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Hub URL</Text>
+          <Text style={styles.infoLabel}>{t('fieldtrip.hubUrl')}</Text>
           <Text style={styles.infoValue} numberOfLines={1}>{hubConfig.hubUrl}</Text>
         </View>
       </SettingsSection>
@@ -175,17 +175,17 @@ const FieldTripTab: React.FC<FieldTripTabProps> = ({ navigation }) => {
       {/* Device Information */}
       <SettingsSection title={t('fieldtrip.deviceInfo') || '设备信息'} icon="tablet">
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Device ID</Text>
+          <Text style={styles.infoLabel}>{t('fieldtrip.deviceId')}</Text>
           <Text style={styles.infoValueMono} numberOfLines={1}>{hubConfig.deviceId}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Group ID</Text>
+          <Text style={styles.infoLabel}>{t('fieldtrip.groupId')}</Text>
           <Text style={styles.infoValueMono} numberOfLines={1}>{hubConfig.groupName || hubConfig.groupId || '-'}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Device Name</Text>
+          <Text style={styles.infoLabel}>{t('fieldtrip.deviceName')}</Text>
           <Text style={styles.infoValue} numberOfLines={1}>{hubConfig.deviceName || hubConfig.deviceId?.slice(-6) || '-'}</Text>
         </View>
       </SettingsSection>

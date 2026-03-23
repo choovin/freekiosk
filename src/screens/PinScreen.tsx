@@ -6,6 +6,7 @@ import { migrateOldPin, hasSecurePin } from '../utils/secureStorage';
 import AppLauncherModule from '../utils/AppLauncherModule';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { useTranslation } from 'react-i18next';
 
 type PinScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Pin'>;
 
@@ -14,6 +15,7 @@ interface PinScreenProps {
 }
 
 const PinScreen: React.FC<PinScreenProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [storedPin, setStoredPin] = useState<string>('1234');
   const [migrationDone, setMigrationDone] = useState<boolean>(false);
   const [displayMode, setDisplayMode] = useState<'webview' | 'external_app' | 'media_player'>('webview');
@@ -114,7 +116,7 @@ const PinScreen: React.FC<PinScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-        <Text style={styles.backButtonText}>↩️ Back to Kiosk</Text>
+        <Text style={styles.backButtonText}>↩️ {t('pin.backToKiosk')}</Text>
       </TouchableOpacity>
 
       <PinInput onSuccess={handleSuccess} storedPin={storedPin} />
