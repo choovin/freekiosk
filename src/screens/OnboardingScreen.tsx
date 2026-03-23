@@ -17,6 +17,7 @@ import {
   PermissionsAndroid,
   ActivityIndicator,
   Modal,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -123,6 +124,9 @@ const OnboardingScreen: React.FC = () => {
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Progress animation for success step
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
   // Ref to track mounted state for cleanup
   const mountedRef = useRef(true);
   // Ref to track timeout ID
@@ -140,6 +144,32 @@ const OnboardingScreen: React.FC = () => {
       }
     };
   }, []);
+
+  // Auto-navigate after success animation (3 seconds)
+  useEffect(() => {
+    if (currentStep !== 'success') {
+      // Reset progress when leaving success
+      progressAnim.setValue(0);
+      return;
+    }
+
+    // Animate progress from 0 to 100% over 3 seconds
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: 3000,
+      useNativeDriver: false,
+    }).start();
+
+    // Navigate to Kiosk screen after 3 seconds
+    const timeout = setTimeout(() => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Kiosk' }],
+      });
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [currentStep, progressAnim, navigation]);
 
   // Request camera permission
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
@@ -510,6 +540,10 @@ const OnboardingScreen: React.FC = () => {
   const renderContent = () => {
     // Success step
     if (currentStep === 'success') {
+      const progressWidth = progressAnim.interpolate({
+        inputRange: [0, 100],
+        outputRange: ['0%', '100%'],
+      });
       return (
         <View style={styles.cardContent}>
           <Icon
@@ -520,6 +554,9 @@ const OnboardingScreen: React.FC = () => {
           />
           <Text style={styles.cardTitle}>{getStepTitle()}</Text>
           <Text style={styles.cardDescriptionSuccess}>{getStepDescription()}</Text>
+          <View style={styles.progressBarContainer}>
+            <Animated.View style={[styles.progressBar, { width: progressWidth }]} />
+          </View>
         </View>
       );
     }
@@ -741,6 +778,19 @@ const styles = StyleSheet.create({
     color: Colors.success,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 6,
+    backgroundColor: 'rgba(74, 222, 128, 0.2)',
+    borderRadius: 3,
+    marginTop: 20,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: Colors.success,
+    borderRadius: 3,
   },
   numberGrid: {
     flexDirection: 'row',
