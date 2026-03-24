@@ -1,9 +1,13 @@
 package com.freekiosk
 
+import android.app.ActivityManager
+import android.content.*
+import android.content.Intent
 import android.content.SharedPreferences
 import android.location.Location
-import android.os.Handler
-import android.os.Looper
+import android.os.*
+import android.provider.Settings
+import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.*
 import com.google.android.gms.location.LocationServices
@@ -262,6 +266,138 @@ class HubConfigModule(private val reactContext: ReactApplicationContext) : React
         } catch (e: Exception) {
             android.util.Log.e(NAME, "Error reporting location: ${e.message}")
         }
+    }
+
+    @ReactMethod
+    fun reportDeviceInfo(promise: Promise) {
+        scope.launch {
+            try {
+                val hubUrl = prefs?.getString(KEY_HUB_URL, null)
+                val deviceId = prefs?.getString(KEY_DEVICE_ID, null)
+                val apiKey = prefs?.getString(KEY_API_KEY, null)
+
+                if (hubUrl.isNullOrEmpty() || deviceId.isNullOrEmpty() || apiKey.isNullOrEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        promise.reject("NOT_CONFIGURED", "Hub not configured")
+                    }
+                    return@launch
+                }
+
+                val deviceInfo = collectDeviceInfo()
+                val reportUrl = "$hubUrl/api/v2/fieldtrip/devices/$deviceId/info"
+                val body = JSONObject().apply {
+                    put("battery_level", deviceInfo.batteryLevel)
+                    put("battery_charging", deviceInfo.batteryCharging)
+                    put("imei", deviceInfo.imei)
+                    put("phone_number", deviceInfo.phoneNumber)
+                    put("serial_number", deviceInfo.serialNumber)
+                    put("android_version", deviceInfo.androidVersion)
+                    put("app_version", deviceInfo.appVersion)
+                    put("free_storage", deviceInfo.freeStorage)
+                    put("total_storage", deviceInfo.totalStorage)
+                    put("free_memory", deviceInfo.freeMemory)
+                    put("total_memory", deviceInfo.totalMemory)
+                }.toString()
+
+                val response = makeHttpRequest(reportUrl, "POST", body, apiKey)
+
+                withContext(Dispatchers.Main) {
+                    if (response != null) {
+                        android.util.Log.d(NAME, "Device info reported successfully")
+                        promise.resolve(true)
+                    } else {
+                        promise.reject("REPORT_FAILED", "Failed to report device info")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(NAME, "reportDeviceInfo failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    promise.reject("ERROR", "reportDeviceInfo failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private data class DeviceInfo(
+        val batteryLevel: Int,
+        val batteryCharging: Boolean,
+        val imei: String,
+        val phoneNumber: String,
+        val serialNumber: String,
+        val androidVersion: String,
+        val appVersion: String,
+        val freeStorage: Long,
+        val totalStorage: Long,
+        val freeMemory: Long,
+        val totalMemory: Long
+    )
+
+    private fun collectDeviceInfo(): DeviceInfo {
+        val ctx = reactContext
+
+        // Battery
+        val batteryIntent = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryLevel = batteryIntent?.let {
+            val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+        } ?: -1
+        val batteryCharging = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ==
+            BatteryManager.BATTERY_STATUS_CHARGING
+
+        // IMEI / Phone number - requires READ_PHONE_STATE permission
+        var imei = ""
+        var phoneNumber = ""
+        try {
+            val telephonyManager = ctx.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_PHONE_STATE)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                imei = telephonyManager?.imei ?: ""
+                phoneNumber = telephonyManager?.line1Number ?: ""
+            }
+        } catch (e: SecurityException) {
+            android.util.Log.w(NAME, "READ_PHONE_STATE permission not granted: ${e.message}")
+        }
+
+        // Serial number
+        val serialNumber = Build.SERIAL ?: ""
+
+        // Android version
+        val androidVersion = Build.VERSION.RELEASE ?: ""
+
+        // App version
+        val appVersion = try {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+
+        // Storage
+        val dataDir = Environment.getDataDirectory()
+        val statFs = StatFs(dataDir.path)
+        val totalStorage = statFs.blockSizeLong * statFs.blockCountLong
+        val freeStorage = statFs.blockSizeLong * statFs.availableBlocksLong
+
+        // Memory
+        val activityManager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val memInfo = ActivityManager.MemoryInfo()
+        activityManager?.getMemoryInfo(memInfo)
+        val totalMemory = memInfo.totalMem
+        val freeMemory = memInfo.availMem
+
+        return DeviceInfo(
+            batteryLevel = batteryLevel,
+            batteryCharging = batteryCharging,
+            imei = imei,
+            phoneNumber = phoneNumber,
+            serialNumber = serialNumber,
+            androidVersion = androidVersion,
+            appVersion = appVersion,
+            freeStorage = freeStorage,
+            totalStorage = totalStorage,
+            freeMemory = freeMemory,
+            totalMemory = totalMemory
+        )
     }
 
     @ReactMethod

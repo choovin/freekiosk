@@ -285,6 +285,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
 
       await HubConfigModule.startGpsReporting(GPS_INTERVAL_SECONDS);
 
+      // Report device info (battery, storage, IMEI, etc.) to Hub
+      HubConfigModule.reportDeviceInfo().catch((e: any) => console.warn('reportDeviceInfo failed:', e));
+
       if (!mountedRef.current) return;
 
       if (bindResult.groupId) {
@@ -364,6 +367,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
       try {
         // Start GPS reporting
         await HubConfigModule.startGpsReporting(GPS_INTERVAL_SECONDS);
+
+        // Report device info (battery, storage, IMEI, etc.) to Hub
+        HubConfigModule.reportDeviceInfo().catch((e: any) => console.warn('reportDeviceInfo failed:', e));
 
         if (!mountedRef.current) return;
 
