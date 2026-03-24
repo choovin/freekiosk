@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -81,6 +82,13 @@ const translations = {
   btnBack: '返回上一步',
   btnRescanGroup: '重新扫描分组码',
   btnReselectNumber: '重新选择编号',
+  btnManualGroup: '手动输入分组码',
+  btnManualDevice: '手动输入设备码',
+  btnUseScanner: '使用扫码',
+  placeholderGroupKey: '请输入分组码（联系教师获取）',
+  placeholderDeviceId: '请输入设备ID',
+  placeholderApiKey: '请输入API密钥',
+  placeholderHubUrl: '请输入Hub服务器地址',
   successWithGroup: '已成功加入 ',
   successWithGroupAndDevice: '，设备编号: ',
   successNoGroup: '已成功绑定，设备编号: ',
@@ -120,6 +128,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+
+  // Manual input states
+  const [showManualGroupInput, setShowManualGroupInput] = useState(false);
+  const [manualGroupKey, setManualGroupKey] = useState('');
+  const [showManualDeviceInput, setShowManualDeviceInput] = useState(false);
+  const [manualDeviceId, setManualDeviceId] = useState('');
+  const [manualApiKey, setManualApiKey] = useState('');
+  const [manualHubUrl, setManualHubUrl] = useState('http://192.168.0.58:8081');
 
   // Progress animation for success step
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -212,6 +228,82 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
     setShowScanner(false);
     setScanningFor(null);
   }, []);
+
+  // Handle manual group key input submission
+  const handleManualGroupSubmit = useCallback(() => {
+    const trimmed = manualGroupKey.trim();
+    if (!trimmed || trimmed.length < 5) {
+      Alert.alert(translations.invalidGroupQr, '分组码格式不正确，请检查后重新输入');
+      return;
+    }
+    setGroupKey(trimmed);
+    setGroupName('研学小组');
+    setShowManualGroupInput(false);
+    // Move to select number step
+    setCurrentStepIndex(STEP_ORDER.indexOf('selectNumber'));
+  }, [manualGroupKey]);
+
+  // Handle manual device info input submission
+  const handleManualDeviceSubmit = useCallback(async () => {
+    const trimmedId = manualDeviceId.trim();
+    const trimmedKey = manualApiKey.trim();
+    const trimmedUrl = manualHubUrl.trim();
+
+    if (!trimmedId || trimmedId.length < 5) {
+      Alert.alert(translations.invalidDeviceQr, '设备ID格式不正确');
+      return;
+    }
+    if (!trimmedKey || trimmedKey.length < 10) {
+      Alert.alert(translations.invalidDeviceQr, 'API密钥格式不正确');
+      return;
+    }
+    if (!trimmedUrl || !trimmedUrl.startsWith('http')) {
+      Alert.alert(translations.invalidDeviceQr, 'Hub服务器地址格式不正确');
+      return;
+    }
+
+    if (!groupKey || !deviceNumber) {
+      Alert.alert(translations.permissionDenied, translations.selectNumberMessage);
+      return;
+    }
+
+    const bindPayload = {
+      device_id: trimmedId,
+      group_key: groupKey,
+      api_key: trimmedKey,
+      hub_url: trimmedUrl,
+      device_number: deviceNumber,
+    };
+
+    setShowManualDeviceInput(false);
+    setIsConfiguring(true);
+
+    try {
+      const bindResult = await HubConfigModule.bindWithQrPayload(JSON.stringify(bindPayload));
+
+      if (!mountedRef.current) return;
+
+      await HubConfigModule.startGpsReporting(GPS_INTERVAL_SECONDS);
+
+      if (!mountedRef.current) return;
+
+      if (bindResult.groupId) {
+        await MqttModule.setGroupId(bindResult.groupId);
+      }
+
+      if (!mountedRef.current) return;
+
+      setIsConfiguring(false);
+      setCurrentStepIndex(STEP_ORDER.indexOf('success'));
+    } catch (error: any) {
+      if (!mountedRef.current) return;
+      setIsConfiguring(false);
+      clearGroupKey();
+      console.error('Manual bind error:', error);
+      Alert.alert(translations.bindError, translations.bindRetryMessage);
+      setCurrentStepIndex(STEP_ORDER.indexOf('scanGroup'));
+    }
+  }, [manualDeviceId, manualApiKey, manualHubUrl, groupKey, deviceNumber]);
 
   // Start QR scanning for device
   const startDeviceQrScan = useCallback(async () => {
@@ -449,6 +541,98 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
     );
   };
 
+  // Render manual group key input form
+  const renderManualGroupInput = () => {
+    if (!showManualGroupInput) return null;
+    return (
+      <View style={styles.manualInputContainer}>
+        <Text style={styles.manualInputLabel}>分组码</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={translations.placeholderGroupKey}
+          placeholderTextColor={Colors.textHint}
+          value={manualGroupKey}
+          onChangeText={setManualGroupKey}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={handleManualGroupSubmit}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryButtonText}>确认分组码</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            setShowManualGroupInput(false);
+            setManualGroupKey('');
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.secondaryButtonText}>{translations.btnUseScanner}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Render manual device info input form
+  const renderManualDeviceInput = () => {
+    if (!showManualDeviceInput) return null;
+    return (
+      <View style={styles.manualInputContainer}>
+        <Text style={styles.manualInputLabel}>设备ID</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={translations.placeholderDeviceId}
+          placeholderTextColor={Colors.textHint}
+          value={manualDeviceId}
+          onChangeText={setManualDeviceId}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.manualInputLabel}>API密钥</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={translations.placeholderApiKey}
+          placeholderTextColor={Colors.textHint}
+          value={manualApiKey}
+          onChangeText={setManualApiKey}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.manualInputLabel}>Hub服务器地址</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={translations.placeholderHubUrl}
+          placeholderTextColor={Colors.textHint}
+          value={manualHubUrl}
+          onChangeText={setManualHubUrl}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={handleManualDeviceSubmit}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryButtonText}>确认绑定</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            setShowManualDeviceInput(false);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.secondaryButtonText}>{translations.btnUseScanner}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   // Render content based on current step
   const renderContent = () => {
     // Success step
@@ -487,6 +671,40 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
           <Text style={styles.cardTitle}>{getStepTitle()}</Text>
           <Text style={styles.cardDescription}>{getStepDescription()}</Text>
           {renderNumberGrid()}
+        </View>
+      );
+    }
+
+    // Scan group step - show manual input if active
+    if (currentStep === 'scanGroup' && showManualGroupInput) {
+      return (
+        <View style={styles.cardContent}>
+          <Icon
+            name="keyboard"
+            size={64}
+            color={Colors.primary}
+            style={styles.cardIcon}
+          />
+          <Text style={styles.cardTitle}>{translations.scanGroupTitle}</Text>
+          <Text style={styles.cardDescription}>或输入教师提供的分组码</Text>
+          {renderManualGroupInput()}
+        </View>
+      );
+    }
+
+    // Scan device step - show manual input if active
+    if (currentStep === 'scanDevice' && showManualDeviceInput) {
+      return (
+        <View style={styles.cardContent}>
+          <Icon
+            name="keyboard"
+            size={64}
+            color={Colors.primary}
+            style={styles.cardIcon}
+          />
+          <Text style={styles.cardTitle}>{translations.scanDeviceTitle}</Text>
+          <Text style={styles.cardDescription}>或输入设备信息完成绑定</Text>
+          {renderManualDeviceInput()}
         </View>
       );
     }
@@ -542,6 +760,30 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
         return translations.btnReselectNumber;
       default:
         return '';
+    }
+  };
+
+  // Get manual toggle button text
+  const getManualToggleText = () => {
+    switch (currentStep) {
+      case 'scanGroup':
+        return translations.btnManualGroup;
+      case 'scanDevice':
+        return translations.btnManualDevice;
+      default:
+        return '';
+    }
+  };
+
+  // Handle manual toggle button
+  const handleManualToggle = () => {
+    if (currentStep === 'scanGroup') {
+      setShowManualGroupInput(true);
+      setManualGroupKey('');
+    } else if (currentStep === 'scanDevice') {
+      setShowManualDeviceInput(true);
+      setManualDeviceId('');
+      setManualApiKey('');
     }
   };
 
@@ -619,27 +861,40 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onSkip }) => {
         </ScrollView>
       </View>
 
-      {/* Primary button */}
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          isPrimaryDisabled() && styles.primaryButtonDisabled,
-        ]}
-        onPress={handlePrimaryPress}
-        disabled={isPrimaryDisabled()}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.primaryButtonText}>{getPrimaryButtonText()}</Text>
-      </TouchableOpacity>
+      {/* Primary button - hidden when manual input is active */}
+      {!(showManualGroupInput || showManualDeviceInput) && currentStep !== 'success' && (
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            isPrimaryDisabled() && styles.primaryButtonDisabled,
+          ]}
+          onPress={handlePrimaryPress}
+          disabled={isPrimaryDisabled()}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryButtonText}>{getPrimaryButtonText()}</Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Secondary button */}
-      {currentStep !== 'success' && (
+      {/* Secondary button - hidden when manual input is active */}
+      {currentStep !== 'success' && !(showManualGroupInput || showManualDeviceInput) && (
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={handleSecondaryPress}
           activeOpacity={0.8}
         >
           <Text style={styles.secondaryButtonText}>{getSecondaryButtonText()}</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Manual input toggle button */}
+      {getManualToggleText() && !showManualGroupInput && !showManualDeviceInput && (
+        <TouchableOpacity
+          style={styles.tertiaryButton}
+          onPress={handleManualToggle}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.tertiaryButtonText}>{getManualToggleText()}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -771,6 +1026,38 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     color: Colors.textHint,
+  },
+  tertiaryButton: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  tertiaryButtonText: {
+    fontSize: 14,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
+  },
+  manualInputContainer: {
+    width: '100%',
+    marginTop: 24,
+  },
+  manualInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  textInput: {
+    width: '100%',
+    height: 48,
+    borderWidth: 1,
+    borderColor: Colors.surfaceVariant,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginBottom: 16,
   },
   overlay: {
     flex: 1,
