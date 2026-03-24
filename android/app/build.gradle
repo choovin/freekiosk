@@ -125,10 +125,19 @@ android {
     
     signingConfigs {
         debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            // Use same keystore as release so debug builds can replace the installed Device Owner app
+            if (keystorePropertiesFile.exists() &&
+                keystoreProperties['FREEKIOSK_UPLOAD_STORE_FILE'] != null) {
+                storeFile file(keystoreProperties['FREEKIOSK_UPLOAD_STORE_FILE'])
+                storePassword keystoreProperties['FREEKIOSK_UPLOAD_STORE_PASSWORD']
+                keyAlias keystoreProperties['FREEKIOSK_UPLOAD_KEY_ALIAS']
+                keyPassword keystoreProperties['FREEKIOSK_UPLOAD_KEY_PASSWORD']
+            } else {
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
         }
         release {
             if (keystorePropertiesFile.exists() && 
